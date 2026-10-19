@@ -1,0 +1,339 @@
+{
+  "name": "claude-code-sync",
+  "displayName": "Claude Code Sync",
+  "description": "Backup, restore e sincronização bi-direcional das sessões do Claude Code (~/.claude/projects) via repositório GitHub privado, com merge sem perdas.",
+  "version": "0.2.2",
+  "publisher": "seu-publisher",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "claude",
+    "claude code",
+    "sync",
+    "backup",
+    "github"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "Claude Sync",
+      "properties": {
+        "claudeSync.githubRepoUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Repositório GitHub **privado** usado como backup. Aceita `https://github.com/usuario/repo.git`, `git@github.com:usuario/repo.git` ou `usuario/repo`.",
+          "order": 0,
+          "scope": "application"
+        },
+        "claudeSync.githubToken": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "**Opcional.** Normalmente não é necessário: use `Claude Sync: Configure GitHub Credentials` → *Entrar com GitHub* (login pelo navegador, sem token). Este campo só é usado como alternativa, com um Personal Access Token com escopo `repo` ou fine-grained com *Contents: Read and write*.",
+          "order": 1,
+          "scope": "machine",
+          "ignoreSync": true
+        },
+        "claudeSync.autoSync": {
+          "type": "boolean",
+          "default": false,
+          "description": "Habilita a sincronização automática (bi-direcional, sem perdas) em segundo plano.",
+          "order": 2,
+          "scope": "application"
+        },
+        "claudeSync.autoSyncInterval": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "description": "Intervalo, em minutos, entre sincronizações automáticas.",
+          "order": 3,
+          "scope": "application"
+        },
+        "claudeSync.syncOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Quando o auto-sync estiver ativo, executa uma sincronização ao abrir o VS Code.",
+          "order": 4,
+          "scope": "application"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "claudeSync.configure",
+        "title": "Configure GitHub Credentials",
+        "category": "Claude Sync",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "claudeSync.changeRepository",
+        "title": "Change Backup Repository",
+        "category": "Claude Sync",
+        "icon": "$(repo)"
+      },
+      {
+        "command": "claudeSync.switchAccount",
+        "title": "Switch GitHub Account",
+        "category": "Claude Sync",
+        "icon": "$(account)"
+      },
+      {
+        "command": "claudeSync.signOut",
+        "title": "Sign Out (Disconnect from GitHub)",
+        "category": "Claude Sync",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "claudeSync.fullSync",
+        "title": "Full Synchronization (Push + Pull)",
+        "category": "Claude Sync",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "claudeSync.push",
+        "title": "Push Local Sessions to GitHub",
+        "category": "Claude Sync",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "claudeSync.pull",
+        "title": "Pull Remote Sessions from GitHub",
+        "category": "Claude Sync",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "claudeSync.selectSessions",
+        "title": "Select Specific Sessions to Sync",
+        "category": "Claude Sync",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "claudeSync.refresh",
+        "title": "Refresh",
+        "category": "Claude Sync",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "claudeSync.toggleAutoSync",
+        "title": "Toggle Auto-Sync",
+        "category": "Claude Sync"
+      },
+      {
+        "command": "claudeSync.showLog",
+        "title": "Show Log",
+        "category": "Claude Sync",
+        "icon": "$(output)"
+      },
+      {
+        "command": "claudeSync.pushItem",
+        "title": "Push to GitHub",
+        "category": "Claude Sync",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "claudeSync.pullItem",
+        "title": "Pull from GitHub",
+        "category": "Claude Sync",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "claudeSync.syncItem",
+        "title": "Sync (bi-directional)",
+        "category": "Claude Sync",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "claudeSync.openSession",
+        "title": "Open Session File",
+        "category": "Claude Sync",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "claudeSync.revealProject",
+        "title": "Reveal in File Explorer",
+        "category": "Claude Sync",
+        "icon": "$(folder-opened)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "claudeSync",
+          "title": "Claude Sync",
+          "icon": "media/claude-sync.svg"
+        }
+      ]
+    },
+    "views": {
+      "claudeSync": [
+        {
+          "id": "claudeSync.localView",
+          "name": "Projetos Locais"
+        },
+        {
+          "id": "claudeSync.remoteView",
+          "name": "Sincronização Remota (GitHub)"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "claudeSync.remoteView",
+        "contents": "Conecte sua conta do GitHub para guardar as conversas num repositório privado. Não é preciso criar token.\n[Entrar com GitHub](command:claudeSync.configure)",
+        "when": "!claudeSync.configured"
+      },
+      {
+        "view": "claudeSync.localView",
+        "contents": "Nenhuma sessão do Claude Code encontrada em ~/.claude/projects."
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "claudeSync.push",
+          "when": "view == claudeSync.localView || view == claudeSync.remoteView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "claudeSync.pull",
+          "when": "view == claudeSync.localView || view == claudeSync.remoteView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "claudeSync.fullSync",
+          "when": "view == claudeSync.localView || view == claudeSync.remoteView",
+          "group": "navigation@3"
+        },
+        {
+          "command": "claudeSync.refresh",
+          "when": "view == claudeSync.localView || view == claudeSync.remoteView",
+          "group": "navigation@4"
+        },
+        {
+          "command": "claudeSync.selectSessions",
+          "when": "view == claudeSync.localView || view == claudeSync.remoteView",
+          "group": "more@1"
+        },
+        {
+          "command": "claudeSync.configure",
+          "when": "view == claudeSync.localView || view == claudeSync.remoteView",
+          "group": "more@2"
+        },
+        {
+          "command": "claudeSync.toggleAutoSync",
+          "when": "view == claudeSync.localView || view == claudeSync.remoteView",
+          "group": "more@6"
+        },
+        {
+          "command": "claudeSync.showLog",
+          "when": "view == claudeSync.localView || view == claudeSync.remoteView",
+          "group": "more@7"
+        },
+        {
+          "command": "claudeSync.changeRepository",
+          "when": "view == claudeSync.localView || view == claudeSync.remoteView",
+          "group": "more@3"
+        },
+        {
+          "command": "claudeSync.switchAccount",
+          "when": "view == claudeSync.localView || view == claudeSync.remoteView",
+          "group": "more@4"
+        },
+        {
+          "command": "claudeSync.signOut",
+          "when": "view == claudeSync.localView || view == claudeSync.remoteView",
+          "group": "more@5"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "claudeSync.pushItem",
+          "when": "view == claudeSync.localView && viewItem =~ /^local(Project|Session)/",
+          "group": "inline@1"
+        },
+        {
+          "command": "claudeSync.syncItem",
+          "when": "view == claudeSync.localView && viewItem =~ /^local(Project|Session)/",
+          "group": "inline@2"
+        },
+        {
+          "command": "claudeSync.pullItem",
+          "when": "view == claudeSync.remoteView && viewItem =~ /^remote(Project|Session)/",
+          "group": "inline@1"
+        },
+        {
+          "command": "claudeSync.syncItem",
+          "when": "view == claudeSync.remoteView && viewItem =~ /^remote(Project|Session)/",
+          "group": "inline@2"
+        },
+        {
+          "command": "claudeSync.pushItem",
+          "when": "view == claudeSync.localView && viewItem =~ /^local(Project|Session)/",
+          "group": "1_sync@1"
+        },
+        {
+          "command": "claudeSync.pullItem",
+          "when": "viewItem =~ /^(local|remote)(Project|Session)/",
+          "group": "1_sync@2"
+        },
+        {
+          "command": "claudeSync.syncItem",
+          "when": "viewItem =~ /^(local|remote)(Project|Session)/",
+          "group": "1_sync@3"
+        },
+        {
+          "command": "claudeSync.openSession",
+          "when": "viewItem =~ /^localSession/",
+          "group": "2_open@1"
+        },
+        {
+          "command": "claudeSync.revealProject",
+          "when": "viewItem =~ /^localProject/",
+          "group": "2_open@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "claudeSync.pushItem",
+          "when": "false"
+        },
+        {
+          "command": "claudeSync.pullItem",
+          "when": "false"
+        },
+        {
+          "command": "claudeSync.syncItem",
+          "when": "false"
+        },
+        {
+          "command": "claudeSync.openSession",
+          "when": "false"
+        },
+        {
+          "command": "claudeSync.revealProject",
+          "when": "false"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node --test out/test/*.test.js",
+    "package": "vsce package --allow-missing-repository --no-rewrite-relative-links"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.1",
+    "typescript": "^5.6.3"
+  }
+}

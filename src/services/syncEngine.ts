@@ -948,7 +948,9 @@ function parseJsonlLines(buf: Buffer): ParsedLine[] {
     if (ts !== undefined) {
       lastTs = ts;
     }
-    lines.push({ raw, key: crypto.createHash('sha1').update(raw).digest('hex'), ts: ts ?? lastTs });
+    // SHA-256: o remoto não é confiável, e com SHA-1 seria possível forjar uma linha que colidisse com outra e fosse
+    // tratada como "já presente" no merge.
+    lines.push({ raw, key: crypto.createHash('sha256').update(raw).digest('hex'), ts: ts ?? lastTs });
   }
   return lines;
 }

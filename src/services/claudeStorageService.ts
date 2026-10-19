@@ -104,7 +104,11 @@ export function slugify(value: string): string {
   return slug || 'projeto';
 }
 
-/** Hash de blob no formato do Git: sha1("blob <len>\0<conteúdo>"). Permite comparar com o remoto sem baixar. */
+/**
+ * Hash de blob no formato do Git: sha1("blob <len>\0<conteúdo>"). Permite comparar com o remoto sem baixar.
+ * Precisa ser SHA-1 porque é o identificador que o Git e a API do GitHub usam; não é usado como proteção, e o conteúdo
+ * baixado é sempre o que o GitHub entrega para esse identificador.
+ */
 export function gitBlobSha(content: Buffer): string {
   const hash = crypto.createHash('sha1');
   hash.update(`blob ${content.length}\0`);

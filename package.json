@@ -1,8 +1,8 @@
 {
   "name": "claude-code-session-sync",
   "displayName": "Claude Code Sync",
-  "description": "Backup, restore e sincronização bi-direcional das sessões do Claude Code (~/.claude/projects) via repositório GitHub privado, com merge sem perdas.",
-  "version": "0.2.3",
+  "description": "Sync Claude Code conversations across machines via your own private GitHub repo — lossless event-by-event merge and full version history.",
+  "version": "0.2.4",
   "publisher": "kslabs",
   "icon": "media/icon.png",
   "license": "MIT",
@@ -23,11 +23,17 @@
   "keywords": [
     "claude",
     "claude code",
+    "anthropic",
+    "ai",
     "sync",
     "backup",
+    "sessions",
+    "conversations",
+    "history",
     "github"
   ],
   "main": "./out/extension.js",
+  "l10n": "./l10n",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -38,14 +44,14 @@
         "claudeSync.githubRepoUrl": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Repositório GitHub **privado** usado como backup. Aceita `https://github.com/usuario/repo.git`, `git@github.com:usuario/repo.git` ou `usuario/repo`.",
+          "markdownDescription": "%config.githubRepoUrl%",
           "order": 0,
           "scope": "application"
         },
         "claudeSync.githubToken": {
           "type": "string",
           "default": "",
-          "markdownDescription": "**Opcional.** Normalmente não é necessário: use `Claude Sync: Configure GitHub Credentials` → *Entrar com GitHub* (login pelo navegador, sem token). Este campo só é usado como alternativa, com um Personal Access Token com escopo `repo` ou fine-grained com *Contents: Read and write*.",
+          "markdownDescription": "%config.githubToken%",
           "order": 1,
           "scope": "machine",
           "ignoreSync": true
@@ -53,7 +59,7 @@
         "claudeSync.autoSync": {
           "type": "boolean",
           "default": false,
-          "description": "Habilita a sincronização automática (bi-direcional, sem perdas) em segundo plano.",
+          "description": "%config.autoSync%",
           "order": 2,
           "scope": "application"
         },
@@ -61,14 +67,14 @@
           "type": "number",
           "default": 30,
           "minimum": 1,
-          "description": "Intervalo, em minutos, entre sincronizações automáticas.",
+          "description": "%config.autoSyncInterval%",
           "order": 3,
           "scope": "application"
         },
         "claudeSync.syncOnStartup": {
           "type": "boolean",
           "default": true,
-          "description": "Quando o auto-sync estiver ativo, executa uma sincronização ao abrir o VS Code.",
+          "description": "%config.syncOnStartup%",
           "order": 4,
           "scope": "application"
         }
@@ -77,96 +83,96 @@
     "commands": [
       {
         "command": "claudeSync.configure",
-        "title": "Configure GitHub Credentials",
+        "title": "%command.configure%",
         "category": "Claude Sync",
         "icon": "$(gear)"
       },
       {
         "command": "claudeSync.changeRepository",
-        "title": "Change Backup Repository",
+        "title": "%command.changeRepository%",
         "category": "Claude Sync",
         "icon": "$(repo)"
       },
       {
         "command": "claudeSync.switchAccount",
-        "title": "Switch GitHub Account",
+        "title": "%command.switchAccount%",
         "category": "Claude Sync",
         "icon": "$(account)"
       },
       {
         "command": "claudeSync.signOut",
-        "title": "Sign Out (Disconnect from GitHub)",
+        "title": "%command.signOut%",
         "category": "Claude Sync",
         "icon": "$(sign-out)"
       },
       {
         "command": "claudeSync.fullSync",
-        "title": "Full Synchronization (Push + Pull)",
+        "title": "%command.fullSync%",
         "category": "Claude Sync",
         "icon": "$(sync)"
       },
       {
         "command": "claudeSync.push",
-        "title": "Push Local Sessions to GitHub",
+        "title": "%command.push%",
         "category": "Claude Sync",
         "icon": "$(cloud-upload)"
       },
       {
         "command": "claudeSync.pull",
-        "title": "Pull Remote Sessions from GitHub",
+        "title": "%command.pull%",
         "category": "Claude Sync",
         "icon": "$(cloud-download)"
       },
       {
         "command": "claudeSync.selectSessions",
-        "title": "Select Specific Sessions to Sync",
+        "title": "%command.selectSessions%",
         "category": "Claude Sync",
         "icon": "$(checklist)"
       },
       {
         "command": "claudeSync.refresh",
-        "title": "Refresh",
+        "title": "%command.refresh%",
         "category": "Claude Sync",
         "icon": "$(refresh)"
       },
       {
         "command": "claudeSync.toggleAutoSync",
-        "title": "Toggle Auto-Sync",
+        "title": "%command.toggleAutoSync%",
         "category": "Claude Sync"
       },
       {
         "command": "claudeSync.showLog",
-        "title": "Show Log",
+        "title": "%command.showLog%",
         "category": "Claude Sync",
         "icon": "$(output)"
       },
       {
         "command": "claudeSync.pushItem",
-        "title": "Push to GitHub",
+        "title": "%command.pushItem%",
         "category": "Claude Sync",
         "icon": "$(cloud-upload)"
       },
       {
         "command": "claudeSync.pullItem",
-        "title": "Pull from GitHub",
+        "title": "%command.pullItem%",
         "category": "Claude Sync",
         "icon": "$(cloud-download)"
       },
       {
         "command": "claudeSync.syncItem",
-        "title": "Sync (bi-directional)",
+        "title": "%command.syncItem%",
         "category": "Claude Sync",
         "icon": "$(sync)"
       },
       {
         "command": "claudeSync.openSession",
-        "title": "Open Session File",
+        "title": "%command.openSession%",
         "category": "Claude Sync",
         "icon": "$(go-to-file)"
       },
       {
         "command": "claudeSync.revealProject",
-        "title": "Reveal in File Explorer",
+        "title": "%command.revealProject%",
         "category": "Claude Sync",
         "icon": "$(folder-opened)"
       }
@@ -184,23 +190,23 @@
       "claudeSync": [
         {
           "id": "claudeSync.localView",
-          "name": "Projetos Locais"
+          "name": "%view.localView%"
         },
         {
           "id": "claudeSync.remoteView",
-          "name": "Sincronização Remota (GitHub)"
+          "name": "%view.remoteView%"
         }
       ]
     },
     "viewsWelcome": [
       {
         "view": "claudeSync.remoteView",
-        "contents": "Conecte sua conta do GitHub para guardar as conversas num repositório privado. Não é preciso criar token.\n[Entrar com GitHub](command:claudeSync.configure)",
+        "contents": "%welcome.remoteView%",
         "when": "!claudeSync.configured"
       },
       {
         "view": "claudeSync.localView",
-        "contents": "Nenhuma sessão do Claude Code encontrada em ~/.claude/projects."
+        "contents": "%welcome.localView%"
       }
     ],
     "menus": {

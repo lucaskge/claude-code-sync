@@ -1,5 +1,6 @@
 import * as zlib from 'zlib';
 
+import { t } from '../i18n';
 import { gitBlobSha } from './claudeStorageService';
 
 /**
@@ -88,10 +89,10 @@ export function decodeChunked(manifest: ChunkManifest, parts: Buffer[]): Buffer 
     // O limite impede que um .gz adulterado no remoto ("bomba de descompressão") esgote a memória.
     content = zlib.gunzipSync(Buffer.concat(parts), { maxOutputLength: Math.max(1, manifest.size) });
   } catch (err) {
-    throw new Error(`arquivo dividido no remoto não pôde ser descomprimido (${(err as Error).message})`);
+    throw new Error(t('split file on the remote could not be decompressed ({0})', (err as Error).message));
   }
   if (content.length !== manifest.size || gitBlobSha(content) !== manifest.sha) {
-    throw new Error('arquivo dividido no remoto está incompleto ou corrompido (sha não confere)');
+    throw new Error(t('split file on the remote is incomplete or corrupted (sha mismatch)'));
   }
   return content;
 }
@@ -117,7 +118,7 @@ export function parseManifest(raw: Buffer): ChunkManifest {
     value.parts.length > MAX_PARTS ||
     !value.parts.every((p) => typeof p === 'string' && /^part-\d{3,}\.gz$/.test(p))
   ) {
-    throw new Error('manifesto de arquivo dividido inválido');
+    throw new Error(t('invalid split-file manifest'));
   }
   return value;
 }

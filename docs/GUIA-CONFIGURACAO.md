@@ -1,5 +1,7 @@
 # Guia de configuração — Claude Code Sync
 
+[English](SETUP.md) · **Português**
+
 Este guia leva do zero até a primeira sincronização. Leva uns 5 minutos e **não exige criar nem guardar token nenhum**.
 
 ## Como a extensão acessa o GitHub
@@ -21,12 +23,12 @@ No VS Code: aba **Extensões** (`Ctrl+Shift+X`) → menu `⋯` → **Install fro
 Ou no terminal:
 
 ```bash
-code --install-extension claude-code-session-sync-0.2.3.vsix
+code --install-extension claude-code-session-sync-0.2.4.vsix
 ```
 
 ## Passo 2 — Entrar com GitHub
 
-1. No VS Code, clique no ícone **Claude Sync** na barra lateral esquerda e depois em **Entrar com GitHub**. Também dá para usar `Ctrl+Shift+P` → **Claude Sync: Configure GitHub Credentials**.
+1. No VS Code, clique no ícone **Claude Sync** na barra lateral esquerda e depois em **Entrar com GitHub**. Também dá para usar `Ctrl+Shift+P` → **Claude Sync: Configurar credenciais do GitHub**.
 2. Escolha **Entrar com GitHub (recomendado)**.
 3. O VS Code pergunta se a extensão pode entrar com o GitHub. Clique em **Allow** (Permitir).
 4. O navegador abre na página do GitHub. Confira a conta e clique em **Authorize** (Autorizar).
@@ -64,14 +66,14 @@ Em *Configurações* (`Ctrl+,`), pesquise por `Claude Sync`:
 - **Auto Sync Interval:** de quantos em quantos minutos sincronizar (padrão: 30).
 - **Sync On Startup:** sincroniza ao abrir o VS Code.
 
-Também dá para ligar e desligar pelo comando **Claude Sync: Toggle Auto-Sync**. Com o auto-sync ligado, o andamento aparece só na barra de status, embaixo à esquerda: `Claude Syncing...` e depois `Claude Synced`.
+Também dá para ligar e desligar pelo comando **Claude Sync: Ligar/desligar sincronização automática**. Com o auto-sync ligado, o andamento aparece só na barra de status, embaixo à esquerda: `Claude Syncing...` e depois `Claude Synced`.
 
 ## Problemas comuns
 
 | Mensagem | Causa | Solução |
 |---|---|---|
 | **Você não está conectado ao GitHub.** | Você saiu da conta do GitHub no VS Code, ou ainda não fez o passo 2. | Faça o passo 2 de novo. |
-| **Repositório ... não encontrado ou sem acesso.** | O nome do repositório está diferente do usado na outra máquina, ou está em outra conta. | Use *Change Backup Repository* para corrigir o nome, ou *Switch GitHub Account* para trocar a conta. |
+| **Repositório ... não encontrado ou sem acesso.** | O nome do repositório está diferente do usado na outra máquina, ou está em outra conta. | Use *Trocar repositório de backup* para corrigir o nome, ou *Trocar conta do GitHub* para trocar a conta. |
 | **Acesso negado pelo GitHub.** | O repositório é de uma **organização** que bloqueia o acesso de aplicativos de terceiros. | Use um repositório na sua conta pessoal, ou peça ao administrador da organização para liberar o "Visual Studio Code". |
 | **Limite de requisições da API do GitHub atingido.** | Muitas requisições num curto período. | Aguarde até o horário indicado na mensagem. |
 | **Sessão em uso agora pelo Claude Code; atualização local adiada.** | A conversa estava aberta e sendo escrita. Não é um erro. | Ela é atualizada na próxima sincronização. |
@@ -81,7 +83,7 @@ Também dá para ligar e desligar pelo comando **Claude Sync: Toggle Auto-Sync**
 | **Projeto ... não tem pasta local associada nesta máquina** (no log) | Um projeto novo chegou de outra máquina durante o auto-sync. Por segurança, a extensão não escolhe a pasta sozinha. | Rode **🔄 Sync** manualmente uma vez e escolha a pasta do projeto. |
 | Uma configuração `claudeSync.*` no `.vscode/settings.json` do projeto não tem efeito | Por segurança, essas configurações só valem nas configurações de usuário. | Defina-as em *Configurações* (`Ctrl+,`) → aba **Usuário**. |
 
-Para ver os detalhes de qualquer sincronização: **Claude Sync: Show Log**.
+Para ver os detalhes de qualquer sincronização: **Claude Sync: Mostrar log**.
 
 
 ## Trocar de conta, de repositório ou desconectar
@@ -90,13 +92,13 @@ A conta e o repositório em uso aparecem no topo da seção **Sincronização Re
 
 | Comando | O que faz |
 |---|---|
-| **Claude Sync: Change Backup Repository** | Troca só o repositório de backup e mantém a conta. Se o repositório novo não existir, oferece criá-lo como privado. O backup antigo **não é apagado** e continua no GitHub. |
-| **Claude Sync: Switch GitHub Account** | Troca a conta do GitHub. Você pode escolher entre as contas já conectadas no VS Code, entrar com outra conta ou usar um token. Em seguida, confirma o repositório de backup, porque a nova conta pode não ter acesso ao anterior. |
-| **Claude Sync: Sign Out (Disconnect from GitHub)** | Desconecta o Claude Sync do GitHub, e a sincronização (inclusive a automática) para. **Nada é apagado**: nem as conversas locais, nem o backup. Para voltar, use *Configure GitHub Credentials*. |
+| **Claude Sync: Trocar repositório de backup** | Troca só o repositório de backup e mantém a conta. Se o repositório novo não existir, oferece criá-lo como privado. O backup antigo **não é apagado** e continua no GitHub. |
+| **Claude Sync: Trocar conta do GitHub** | Troca a conta do GitHub. Você pode escolher entre as contas já conectadas no VS Code, entrar com outra conta ou usar um token. Em seguida, confirma o repositório de backup, porque a nova conta pode não ter acesso ao anterior. |
+| **Claude Sync: Sair (desconectar do GitHub)** | Desconecta o Claude Sync do GitHub, e a sincronização (inclusive a automática) para. **Nada é apagado**: nem as conversas locais, nem o backup. Para voltar, use *Configurar credenciais do GitHub*. |
 
 **Entrar com outra conta:** ao escolher *Entrar com outra conta do GitHub*, o navegador abre a página de autorização. Se o navegador já estiver logado na conta atual, ele autoriza essa mesma conta. Antes de autorizar, saia dela no github.com, ou copie o link para uma **janela anônima** e entre com a outra conta.
 
-**Sair da conta no VS Code inteiro:** o *Sign Out* desconecta só o Claude Sync. A conta do GitHub continua conectada ao VS Code, porque outros recursos a usam (Settings Sync, Pull Requests, Copilot). Para sair dela também, clique no ícone de **Contas** (o bonequinho, no canto inferior esquerdo do VS Code) → sua conta do GitHub → **Sign Out**.
+**Sair da conta no VS Code inteiro:** o *Sair* desconecta só o Claude Sync. A conta do GitHub continua conectada ao VS Code, porque outros recursos a usam (Settings Sync, Pull Requests, Copilot). Para sair dela também, clique no ícone de **Contas** (o bonequinho, no canto inferior esquerdo do VS Code) → sua conta do GitHub → **Sair**.
 
 ## Onde ficam os backups `.bak`
 
@@ -119,7 +121,7 @@ O essencial:
 - Ative a autenticação em dois fatores na sua conta do GitHub.
 - Para revogar o acesso a qualquer momento: no GitHub, abra https://github.com/settings/applications → **Authorized OAuth Apps** → **Visual Studio Code** → **Revoke**.
 
-Os detalhes, incluindo todas as proteções da extensão, estão na seção [Segurança do README](../README.md#segurança).
+Os detalhes, incluindo todas as proteções da extensão, estão na seção [Segurança do README](../README.pt-BR.md#segurança).
 
 ---
 
@@ -134,7 +136,7 @@ Use essa opção só se quiser que a extensão enxergue **apenas** o repositóri
    - **Repository access:** *Only select repositories* → o repositório de backup.
    - **Permissions → Repository permissions → Contents:** *Read and write*.
    - Clique em **Generate token** e copie o valor, que começa com `github_pat_...`.
-3. No VS Code, execute **Claude Sync: Configure GitHub Credentials**, escolha **Usar um token de acesso (PAT)** e cole o token.
+3. No VS Code, execute **Claude Sync: Configurar credenciais do GitHub**, escolha **Usar um token de acesso (PAT)** e cole o token.
 
 O token fica no cofre seguro do VS Code. Quando ele vencer, gere outro e repita o passo 3.
 

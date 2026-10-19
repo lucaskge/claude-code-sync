@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { t } from '../i18n';
 import { ClaudeStorageService, LocalProject, LocalSession } from '../services/claudeStorageService';
 import { RemoteProject, RemoteSession, SessionRef, SyncEngine } from '../services/syncEngine';
 
@@ -74,17 +75,17 @@ export class ClaudeTreeDataProvider implements vscode.TreeDataProvider<ClaudeTre
       const inRemote = remote?.projects.has(project.key);
       item.id = `local:${project.folderName}`;
       item.contextValue = 'localProject';
-      item.description = `${project.sessionCount} sessão(ões) · ${formatDate(project.lastModified)}${remote && !inRemote ? ' · não enviado' : ''}`;
+      item.description = `${t('{0} session(s)', project.sessionCount)} · ${formatDate(project.lastModified)}${remote && !inRemote ? ` · ${t('not uploaded')}` : ''}`;
       item.iconPath = new vscode.ThemeIcon(project.source === 'git' ? 'repo' : 'folder');
       item.resourceUri = vscode.Uri.file(project.dirPath);
       item.tooltip = new vscode.MarkdownString(
         [
           `**${escapeMd(project.displayName)}**`,
           '',
-          `- Chave remota: \`${project.key}\` (${describeSource(project.source)})`,
-          project.cwd ? `- Caminho: \`${project.cwd}\`` : undefined,
+          t('- Remote key: `{0}` ({1})', project.key, describeSource(project.source)),
+          project.cwd ? t('- Path: `{0}`', project.cwd) : undefined,
           project.gitRemote ? `- Remote Git: \`${project.gitRemote.replace(/\/\/[^/@]+@/, '//')}\`` : undefined,
-          `- Pasta do Claude: \`${project.folderName}\``,
+          t('- Claude folder: `{0}`', project.folderName),
         ]
           .filter((l) => l !== undefined)
           .join('\n'),
@@ -120,13 +121,13 @@ export class ClaudeTreeDataProvider implements vscode.TreeDataProvider<ClaudeTre
       item.iconPath = statusIcon(status);
       item.tooltip = new vscode.MarkdownString(
         [
-          `**${escapeMd(info.title ?? '(sem título)')}**`,
+          `**${escapeMd(info.title ?? t('(untitled)'))}**`,
           '',
-          `- Sessão: \`${session.id}\``,
-          `- Última alteração: ${formatDate(session.mtimeMs)}`,
-          info.firstTimestamp ? `- Início: ${formatDate(info.firstTimestamp)}` : undefined,
-          `- Tamanho: ${formatSize(session.totalSize)} (${1 + session.extraFiles.length} arquivo(s))`,
-          `- Status: ${describeStatus(status)}`,
+          t('- Session: `{0}`', session.id),
+          t('- Last modified: {0}', formatDate(session.mtimeMs)),
+          info.firstTimestamp ? t('- Started: {0}', formatDate(info.firstTimestamp)) : undefined,
+          t('- Size: {0} ({1} file(s))', formatSize(session.totalSize), 1 + session.extraFiles.length),
+          t('- Status: {0}', describeStatus(status)),
         ]
           .filter((l) => l !== undefined)
           .join('\n'),
@@ -168,9 +169,9 @@ export class ClaudeTreeDataProvider implements vscode.TreeDataProvider<ClaudeTre
 
     const projects = [...state.projects.values()].sort((a, b) => (a.metadata?.displayName ?? a.key).localeCompare(b.metadata?.displayName ?? b.key));
     if (projects.length === 0) {
-      const item = new ClaudeTreeItem(`Nenhum projeto em ${state.repo} ainda`, vscode.TreeItemCollapsibleState.None, 'message');
+      const item = new ClaudeTreeItem(t('No projects in {0} yet', state.repo), vscode.TreeItemCollapsibleState.None, 'message');
       item.iconPath = new vscode.ThemeIcon('info');
-      item.description = 'use Push para enviar';
+      item.description = t('use Push to upload');
       return [item];
     }
     return projects.map((project) => {
@@ -185,17 +186,17 @@ export class ClaudeTreeDataProvider implements vscode.TreeDataProvider<ClaudeTre
       );
       item.id = `remote:${project.key}`;
       item.contextValue = 'remoteProject';
-      item.description = `${project.sessions.size} sessão(ões)${localKeys.has(project.key) ? '' : ' · não existe nesta máquina'}`;
+      item.description = `${t('{0} session(s)', project.sessions.size)}${localKeys.has(project.key) ? '' : ` · ${t('not on this machine')}`}`;
       item.iconPath = new vscode.ThemeIcon(localKeys.has(project.key) ? 'cloud' : 'cloud-download');
       const machines = Object.entries(project.metadata?.knownPaths ?? {}).map(([host, paths]) => `- ${escapeMd(host)}: ${paths.map((p) => `\`${p}\``).join(', ')}`);
       item.tooltip = new vscode.MarkdownString(
         [
           `**${escapeMd(project.metadata?.displayName ?? project.key)}**`,
           '',
-          `- Pasta remota: \`repos/${project.key}\``,
+          t('- Remote folder: `{0}`', `repos/${project.key}`),
           project.metadata?.gitRemote ? `- Remote Git: \`${project.metadata.gitRemote}\`` : undefined,
-          project.metadata?.updatedAt ? `- Atualizado em: ${formatDate(Date.parse(project.metadata.updatedAt))}` : undefined,
-          machines.length ? '\nMáquinas:' : undefined,
+          project.metadata?.updatedAt ? t('- Updated: {0}', formatDate(Date.parse(project.metadata.updatedAt))) : undefined,
+          machines.length ? `\n${t('Machines:')}` : undefined,
           ...machines,
         ]
           .filter((l) => l !== undefined)
@@ -238,13 +239,13 @@ export class ClaudeTreeDataProvider implements vscode.TreeDataProvider<ClaudeTre
       item.iconPath = statusIcon(status);
       item.tooltip = new vscode.MarkdownString(
         [
-          `**${escapeMd(meta?.title ?? '(sem título)')}**`,
+          `**${escapeMd(meta?.title ?? t('(untitled)'))}**`,
           '',
-          `- Sessão: \`${session.id}\``,
-          meta?.lastTimestamp ? `- Último evento: ${formatDate(meta.lastTimestamp)}` : undefined,
-          meta?.updatedBy ? `- Enviada por: ${escapeMd(meta.updatedBy)}` : undefined,
-          `- Tamanho: ${formatSize(session.totalSize)} (${session.files.size} arquivo(s))`,
-          `- Status: ${describeStatus(status)}`,
+          t('- Session: `{0}`', session.id),
+          meta?.lastTimestamp ? t('- Last event: {0}', formatDate(meta.lastTimestamp)) : undefined,
+          meta?.updatedBy ? t('- Uploaded by: {0}', escapeMd(meta.updatedBy)) : undefined,
+          t('- Size: {0} ({1} file(s))', formatSize(session.totalSize), session.files.size),
+          t('- Status: {0}', describeStatus(status)),
         ]
           .filter((l) => l !== undefined)
           .join('\n'),
@@ -295,28 +296,28 @@ function statusIcon(status: SyncStatus): vscode.ThemeIcon {
 function describeStatus(status: SyncStatus): string {
   switch (status) {
     case 'synced':
-      return 'sincronizada';
+      return t('synced');
     case 'localOnly':
-      return 'somente local (ainda não enviada)';
+      return t('local only (not uploaded yet)');
     case 'remoteOnly':
-      return 'somente no GitHub (não existe nesta máquina)';
+      return t('GitHub only (not on this machine)');
     case 'differs':
-      return 'diferente entre local e GitHub';
+      return t('different between local and GitHub');
     default:
-      return 'desconhecido (atualize a visão remota)';
+      return t('unknown (refresh the remote view)');
   }
 }
 
 function describeSource(source: LocalProject['source']): string {
   switch (source) {
     case 'git':
-      return 'pelo remote Git';
+      return t('from the Git remote');
     case 'mapping':
-      return 'associação manual';
+      return t('manual mapping');
     case 'cwd':
-      return 'pelo nome da pasta, sem remote Git';
+      return t('from the folder name, no Git remote');
     default:
-      return 'pelo nome da pasta do Claude';
+      return t('from the Claude folder name');
   }
 }
 

@@ -11,6 +11,7 @@ import * as zlib from 'node:zlib';
 import { CHUNK_THRESHOLD_BYTES, PART_SIZE_BYTES, decodeChunked, parseManifest } from '../services/chunkedStorage';
 import { CommitResult, FileChange, GitHubError, GitHubService, RemoteFile, RemoteSnapshot, parseRepoInput } from '../services/githubService';
 import { SyncEngine, SyncHost, mergeJsonl } from '../services/syncEngine';
+import { t } from '../i18n';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Fake do GitHub em memória (mesma semântica de commit/fast-forward da API real)
@@ -262,7 +263,7 @@ describe('SyncEngine (duas máquinas, caminhos diferentes)', () => {
     await m1.sync('push');
     const push = await m2.sync('push');
     assert.equal(push.uploaded, 0);
-    assert.ok(push.warnings.some((w) => w.includes('remoto tem eventos mais novos')));
+    assert.ok(push.warnings.some((w) => w.includes('remote has newer events')));
     assert.deepEqual(m2.uuids(B), ['b1'], 'push nunca altera o local');
     assert.ok(gh.files.get(`repos/acme-projetoa/${B}.jsonl`)!.toString().includes('b2'), 'remoto preservado');
   });
@@ -281,7 +282,7 @@ describe('SyncEngine (duas máquinas, caminhos diferentes)', () => {
       log: () => undefined,
     };
     const report = await new SyncEngine(new ClaudeStorageService(), host).run({ direction: 'sync', scope: { kind: 'all' }, interactive: false });
-    assert.ok(report.warnings.some((w) => w.includes('em uso')));
+    assert.ok(report.warnings.some((w) => w.includes('in use')));
     assert.deepEqual(m2.uuids(C), ['c1', 'c3-ativo'], 'arquivo local intacto');
     const remoteC = gh.files.get(`repos/acme-projetoa/${C}.jsonl`)!.toString();
     assert.ok(remoteC.includes('c2') && remoteC.includes('c3-ativo'), 'remoto recebeu a união');
@@ -354,7 +355,7 @@ describe('SyncEngine (duas máquinas, caminhos diferentes)', () => {
     m1.appendLine(A, ev('a-publico', 50));
     gh.isPrivate = false;
     const before = gh.commit;
-    await assert.rejects(m1.sync('push'), (err: GitHubError) => err.kind === 'forbidden' && /PÚBLICO/.test(err.message));
+    await assert.rejects(m1.sync('push'), (err: GitHubError) => err.kind === 'forbidden' && /PUBLIC/.test(err.message));
     assert.equal(gh.commit, before, 'nenhum commit criado');
     gh.isPrivate = true;
   });
@@ -394,7 +395,7 @@ describe('validações de segurança', () => {
   it('decodeChunked não descomprime além do tamanho declarado (bomba gzip)', () => {
     const bomb = zlib.gzipSync(Buffer.alloc(50 * 1024 * 1024));
     const manifest = parseManifest(Buffer.from(JSON.stringify({ version: 1, encoding: 'gzip', size: 10, sha: 'a'.repeat(40), parts: ['part-000.gz'] })));
-    assert.throws(() => decodeChunked(manifest, [bomb]), /descomprimido/);
+    assert.throws(() => decodeChunked(manifest, [bomb]), /decompressed/);
   });
 
   it('parseManifest rejeita manifestos inválidos', () => {
@@ -407,7 +408,57 @@ describe('validações de segurança', () => {
       { ...base, parts: ['../x'] },
       { ...base, parts: Array.from({ length: 1000 }, (_, i) => `part-${String(i).padStart(3, '0')}.gz`) },
     ]) {
-      assert.throws(() => parseManifest(Buffer.from(JSON.stringify(bad))), /inválido/, JSON.stringify(bad).slice(0, 80));
+      assert.throws(() => parseManifest(Buffer.from(JSON.stringify(bad))), /invalid/, JSON.stringify(bad).slice(0, 80));
     }
+  });
+});
+
+describe('traduções', () => {
+  const root = path.join(__dirname, '..', '..');
+  const placeholders = (text: string) => (text.match(/\{\d+\}/g) ?? []).sort();
+
+  /** Textos passados para t('...') em todo o código-fonte (exceto testes). */
+  function sourceKeys(): Set<string> {
+    const keys = new Set<string>();
+    const walk = (dir: string): void => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory() && entry.name !== 'test') {
+          walk(full);
+        } else if (entry.isFile() && entry.name.endsWith('.ts')) {
+          for (const m of fs.readFileSync(full, 'utf8').matchAll(/\bt\(\s*'((?:[^'\\]|\\.)*)'/g)) {
+            keys.add(m[1].replace(/\\(.)/g, '$1'));
+          }
+        }
+      }
+    };
+    walk(path.join(root, 'src'));
+    return keys;
+  }
+
+  it('t() usa o texto em inglês e preenche os marcadores', () => {
+    assert.equal(t('Commit {0} created.', 'abc1234'), 'Commit abc1234 created.');
+    assert.equal(t('{0} and {1}', 1, true), '1 and true');
+  });
+
+  it('toda mensagem do código tem tradução pt-br, com os mesmos marcadores', () => {
+    const bundle = JSON.parse(fs.readFileSync(path.join(root, 'l10n', 'bundle.l10n.pt-br.json'), 'utf8')) as Record<string, string>;
+    const keys = sourceKeys();
+    assert.ok(keys.size > 100, 'mensagens encontradas no código');
+    assert.deepEqual([...keys].filter((k) => !(k in bundle)), [], 'mensagens sem tradução');
+    assert.deepEqual(Object.keys(bundle).filter((k) => !keys.has(k)), [], 'traduções que não são mais usadas');
+    for (const [en, pt] of Object.entries(bundle)) {
+      assert.deepEqual(placeholders(pt), placeholders(en), en);
+    }
+  });
+
+  it('todo %chave% do package.json existe em inglês e em pt-br', () => {
+    const pkg = fs.readFileSync(path.join(root, 'package.json'), 'utf8');
+    const en = JSON.parse(fs.readFileSync(path.join(root, 'package.nls.json'), 'utf8')) as Record<string, string>;
+    const pt = JSON.parse(fs.readFileSync(path.join(root, 'package.nls.pt-br.json'), 'utf8')) as Record<string, string>;
+    const used = [...pkg.matchAll(/"%([\w.]+)%"/g)].map((m) => m[1]);
+    assert.ok(used.length > 20);
+    assert.deepEqual(used.filter((k) => !(k in en) || !(k in pt)), []);
+    assert.deepEqual(Object.keys(en).sort(), Object.keys(pt).sort());
   });
 });

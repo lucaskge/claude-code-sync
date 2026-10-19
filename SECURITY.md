@@ -1,47 +1,47 @@
-# Política de segurança
+# Security policy
 
-O Claude Code Sync lida com dados sensíveis: o histórico de conversas do Claude Code, que pode conter código, senhas e chaves, e o acesso à conta do GitHub. Relatos de vulnerabilidade são levados a sério.
+Claude Code Sync handles sensitive data: Claude Code conversation history, which can contain code, passwords and keys, and access to a GitHub account. Vulnerability reports are taken seriously.
 
-## Versões com suporte
+## Supported versions
 
-Só a versão mais recente recebe correções de segurança. Antes de reportar, confira se o problema acontece nela.
+Only the latest version receives security fixes. Please check that the issue still happens on it before reporting.
 
-| Versão | Suporte |
+| Version | Supported |
 |---|---|
-| A mais recente (veja [Releases](https://github.com/lucaskge/claude-code-sync/releases)) | ✅ |
-| Anteriores | ❌ |
+| Latest (see [Releases](https://github.com/lucaskge/claude-code-sync/releases)) | ✅ |
+| Older | ❌ |
 
-## Como reportar
+## How to report
 
-**Não abra uma issue pública.** Use o canal privado do GitHub:
+**Don't open a public issue.** Use GitHub's private channel:
 
-1. Abra a aba [**Security and quality**](https://github.com/lucaskge/claude-code-sync/security) do repositório.
-2. Clique em **Report a vulnerability**.
-3. Descreva:
-   - o que acontece e qual é o impacto (por exemplo: vazamento de conversas, acesso ao token, gravação de arquivos fora de `~/.claude/projects`);
-   - os passos para reproduzir;
-   - a versão da extensão, do VS Code e o sistema operacional.
+1. Open the repository's [**Security**](https://github.com/lucaskge/claude-code-sync/security) tab.
+2. Click **Report a vulnerability**.
+3. Describe:
+   - what happens and its impact (for example: conversations leaked, token exposed, files written outside `~/.claude/projects`);
+   - steps to reproduce;
+   - the extension version, VS Code version and operating system.
 
-**Nunca envie conversas reais, tokens ou chaves**, nem mesmo no relato privado. Use dados inventados para demonstrar o problema.
+**Never send real conversations, tokens or keys**, not even in the private report. Use made-up data to demonstrate the problem.
 
-## O que esperar
+## What to expect
 
-- Confirmação de recebimento em até **7 dias**.
-- Se a falha for confirmada, a correção é publicada numa nova versão e o problema é divulgado num *security advisory* depois que a correção estiver disponível. Quem reportou recebe o crédito, se quiser.
-- Se o relato não for considerado uma vulnerabilidade, você recebe uma explicação do motivo.
+- Acknowledgement within **7 days**.
+- If confirmed, the fix is released in a new version and disclosed in a security advisory once the fix is available. Reporters are credited if they wish.
+- If the report isn't considered a vulnerability, you'll get an explanation.
 
-Este é um projeto mantido por uma pessoa nas horas vagas, então os prazos são uma meta, não uma garantia.
+This project is maintained by one person in their spare time, so these timelines are goals, not guarantees.
 
-## Escopo
+## Scope
 
-Estão no escopo problemas no código desta extensão, por exemplo:
+In scope — problems in this extension's code, for example:
 
-- envio de conversas para um repositório diferente do configurado pelo usuário;
-- exposição do token do GitHub (logs, arquivos, requisições para outros servidores);
-- gravação ou leitura de arquivos fora de `~/.claude/projects` a partir de dados do repositório remoto;
-- falhas que permitam a um projeto aberto no VS Code controlar a extensão.
+- conversations being sent to a repository other than the one the user configured;
+- exposure of the GitHub token (logs, files, requests to other servers);
+- reading or writing files outside `~/.claude/projects` based on data from the remote repository;
+- a project opened in VS Code being able to control the extension.
 
-Estão fora do escopo:
+Out of scope:
 
-- os riscos de design já documentados na seção [Segurança do README](README.md#segurança), como a permissão `repo` do login do GitHub ou a ausência de criptografia adicional no backup;
-- vulnerabilidades no VS Code, no GitHub ou no Claude Code em si. Reporte essas aos respectivos responsáveis.
+- design risks already documented in [Security & privacy](README.md#security--privacy), such as the `repo` scope of the GitHub sign-in or the lack of additional encryption of the backup;
+- vulnerabilities in VS Code, GitHub or Claude Code itself — please report those to their maintainers.

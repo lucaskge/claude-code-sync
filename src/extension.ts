@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { setTranslator, t } from './i18n';
 import { ClaudeStorageService, encodeProjectPath } from './services/claudeStorageService';
 import { GitHubError, GitHubService, parseRepoInput } from './services/githubService';
 import { RemoteProject, SessionRef, SyncBusyError, SyncDirection, SyncEngine, SyncHost, SyncReport, SyncScope } from './services/syncEngine';
@@ -22,6 +23,7 @@ let startupTimer: NodeJS.Timeout | undefined;
 let lastAutoSyncErrorKind: string | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  setTranslator((message, ...args) => vscode.l10n.t(message, ...args));
   output = vscode.window.createOutputChannel('Claude Sync');
   context.subscriptions.push(output);
 
@@ -33,7 +35,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     setMapping: async (folderName, projectKey) => {
       const mappings = { ...context.globalState.get<Record<string, string>>(MAPPINGS_KEY, {}), [folderName]: projectKey };
       await context.globalState.update(MAPPINGS_KEY, mappings);
-      log(`Pasta local "${folderName}" associada ao projeto remoto "${projectKey}".`);
+      log(t('Local folder "{0}" mapped to remote project "{1}".', folderName, projectKey));
     },
     workspacePaths: () => (vscode.workspace.workspaceFolders ?? []).filter((f) => f.uri.scheme === 'file').map((f) => f.uri.fsPath),
     askLocalPathForProject: askLocalPathForProject,
@@ -56,7 +58,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       try {
         await engine.getRemoteState(forceRemote);
       } catch (err) {
-        log(`Falha ao ler o repositório remoto: ${(err as Error).message}`);
+        log(t('Failed to read the remote repository: {0}', (err as Error).message));
       }
     }
     const connection = await describeConnection(context);
@@ -80,13 +82,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const runSync = async (direction: SyncDirection, scope: SyncScope, mode: 'manual' | 'auto'): Promise<SyncReport | undefined> => {
     if (engine.isRunning) {
       if (mode === 'manual') {
-        void vscode.window.showInformationMessage('Claude Sync: já existe uma sincronização em andamento.');
+        void vscode.window.showInformationMessage(t('Claude Sync: a sync is already in progress.'));
       }
       return undefined;
     }
     if (!(await isConfigured())) {
       if (mode === 'manual') {
-        const choice = await vscode.window.showWarningMessage('Claude Sync ainda não está configurado.', 'Configurar agora');
+        const choice = await vscode.window.showWarningMessage(t('Claude Sync is not configured yet.'), t('Configure now'));
         if (choice) {
           await vscode.commands.executeCommand('claudeSync.configure');
         }
@@ -112,7 +114,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (mode === 'manual') {
         await showReport(report);
       } else if (report.warnings.length) {
-        log(`Auto-sync concluído com ${report.warnings.length} aviso(s).`);
+        log(t('Auto-sync finished with {0} warning(s).', report.warnings.length));
       }
       return report;
     } catch (err) {
@@ -183,7 +185,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const enabled = !config.get<boolean>('autoSync', false);
     await config.update('autoSync', enabled, vscode.ConfigurationTarget.Global);
     void vscode.window.showInformationMessage(
-      enabled ? `Claude Sync: auto-sync ativado (a cada ${config.get<number>('autoSyncInterval', 30)} min).` : 'Claude Sync: auto-sync desativado.',
+      enabled ? t('Claude Sync: auto-sync on (every {0} min).', config.get<number>('autoSyncInterval', 30)) : t('Claude Sync: auto-sync off.'),
     );
   });
 
@@ -209,7 +211,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return;
     }
     if (file.size > 50 * 1024 * 1024) {
-      void vscode.window.showWarningMessage(`Arquivo grande (${formatSize(file.size)}); o VS Code pode não abri-lo no editor.`);
+      void vscode.window.showWarningMessage(t('Large file ({0}); VS Code may not open it in the editor.', formatSize(file.size)));
     }
     await vscode.window.showTextDocument(vscode.Uri.file(file.absPath), { preview: true });
   });
@@ -232,12 +234,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
     const config = vscode.workspace.getConfiguration(CONFIG);
     if (!config.get<boolean>('autoSync', false)) {
-      log('Auto-sync desativado.');
+      log(t('Auto-sync off.'));
       return;
     }
     const minutes = Math.max(1, config.get<number>('autoSyncInterval', 30));
     autoSyncTimer = setInterval(() => void runSync('sync', { kind: 'all' }, 'auto'), minutes * 60_000);
-    log(`Auto-sync ativado a cada ${minutes} minuto(s).`);
+    log(t('Auto-sync on, every {0} minute(s).', minutes));
     if (isStartup && config.get<boolean>('syncOnStartup', true)) {
       // Pequeno atraso para não competir com a inicialização do VS Code.
       startupTimer = setTimeout(() => void runSync('sync', { kind: 'all' }, 'auto'), 15_000);
@@ -289,7 +291,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   await updateConfiguredContext();
   scheduleAutoSync(true);
   void refreshAll(false);
-  log(`Claude Sync ativo. Pasta do Claude Code: ${storage.projectsDir}`);
+  log(t('Claude Sync active. Claude Code folder: {0}', storage.projectsDir));
 }
 
 export function deactivate(): void {
@@ -341,13 +343,13 @@ async function createGitHubService(context: vscode.ExtensionContext): Promise<Gi
   const ref = parseRepoInput(repoInput);
   if (!ref) {
     throw new GitHubError(
-      repoInput ? `URL de repositório inválida: "${repoInput}". Use https://github.com/usuario/repo ou usuario/repo.` : 'Repositório GitHub não configurado.',
+      repoInput ? t('Invalid repository URL: "{0}". Use https://github.com/user/repo or user/repo.', repoInput) : t('GitHub repository not configured.'),
       'notFound',
     );
   }
   const token = await getToken(context);
   if (!token) {
-    throw new GitHubError('Você não está conectado ao GitHub. Execute "Claude Sync: Configure GitHub Credentials" e escolha "Entrar com GitHub".', 'auth');
+    throw new GitHubError(t('You are not connected to GitHub. Run "Claude Sync: Configure GitHub Credentials" and choose "Sign in with GitHub".'), 'auth');
   }
   return new GitHubService(ref, token, log);
 }
@@ -390,14 +392,14 @@ async function chooseAuth(context: vscode.ExtensionContext, title: string): Prom
   const method = await vscode.window.showQuickPick(
     [
       {
-        label: '$(github) Entrar com GitHub',
-        description: 'recomendado',
-        detail: 'Login pelo navegador, como na sincronização de configurações do VS Code. Não há token para criar nem guardar.',
+        label: `$(github) ${t('Sign in with GitHub')}`,
+        description: t('recommended'),
+        detail: t('Browser sign-in, like VS Code Settings Sync. No token to create or store.'),
         method: 'login' as const,
       },
       {
-        label: '$(key) Usar um token de acesso (PAT)',
-        detail: 'Para quem quer um token restrito a um único repositório (fine-grained). Veja docs/GUIA-CONFIGURACAO.md.',
+        label: `$(key) ${t('Use an access token (PAT)')}`,
+        detail: t('For a token restricted to a single repository (fine-grained). See the setup guide.'),
         method: 'token' as const,
       },
     ],
@@ -420,7 +422,7 @@ async function signInWithGitHub(mode: 'default' | 'pick' | 'new'): Promise<GitHu
     let session: vscode.AuthenticationSession;
     if (mode === 'new') {
       session = await vscode.authentication.getSession(GITHUB_AUTH_PROVIDER, GITHUB_SCOPES, {
-        forceNewSession: { detail: 'Entre com a outra conta do GitHub. Dica: se o navegador entrar automaticamente na conta atual, saia dela no github.com ou use uma janela anônima.' },
+        forceNewSession: { detail: t('Sign in with the other GitHub account. Tip: if the browser signs in to the current account automatically, sign out of it on github.com or use a private window.') },
         clearSessionPreference: true,
       });
     } else {
@@ -429,7 +431,7 @@ async function signInWithGitHub(mode: 'default' | 'pick' | 'new'): Promise<GitHu
     loginCache.set(session.accessToken, session.account.label);
     return { token: session.accessToken, login: session.account.label, method: 'login' };
   } catch (err) {
-    void vscode.window.showErrorMessage(`Claude Sync: login no GitHub não concluído (${(err as Error).message}).`);
+    void vscode.window.showErrorMessage(t('Claude Sync: GitHub sign-in not completed ({0}).', (err as Error).message));
     return undefined;
   }
 }
@@ -437,13 +439,13 @@ async function signInWithGitHub(mode: 'default' | 'pick' | 'new'): Promise<GitHu
 async function askManualToken(context: vscode.ExtensionContext): Promise<GitHubAuth | undefined> {
   const existingManual = await context.secrets.get(SECRET_TOKEN_KEY);
   const tokenInput = await vscode.window.showInputBox({
-    title: 'Claude Sync: token de acesso do GitHub',
+    title: t('Claude Sync: GitHub access token'),
     prompt: existingManual
-      ? 'Novo token (deixe vazio para manter o atual). Classic: escopo "repo". Fine-grained: "Contents: Read and write".'
-      : 'Crie em github.com/settings/personal-access-tokens/new com "Contents: Read and write". Fica no cofre seguro do VS Code.',
+      ? t('New token (leave empty to keep the current one). Classic: "repo" scope. Fine-grained: "Contents: Read and write".')
+      : t('Create it at github.com/settings/personal-access-tokens/new with "Contents: Read and write". It is kept in VS Code secret storage.'),
     password: true,
     ignoreFocusOut: true,
-    validateInput: (value) => (!value && !existingManual ? 'Informe o token, ou volte e escolha "Entrar com GitHub" para não precisar de token.' : undefined),
+    validateInput: (value) => (!value && !existingManual ? t('Enter the token, or go back and choose "Sign in with GitHub" so no token is needed.') : undefined),
   });
   if (tokenInput === undefined) {
     return undefined;
@@ -463,11 +465,11 @@ async function chooseRepository(context: vscode.ExtensionContext, auth: GitHubAu
   const current = config.get<string>('githubRepoUrl', '');
   const repoInput = await vscode.window.showInputBox({
     title,
-    prompt: `Conectado como ${auth.login}. Repositório que guardará as sessões; se não existir, será criado como privado. Use o mesmo em todas as máquinas.`,
+    prompt: t('Signed in as {0}. Repository that will store your sessions; if it does not exist, it will be created as private. Use the same one on every machine.', auth.login),
     placeHolder: `${auth.login}/claude-code-backup`,
     value: current || `${auth.login}/claude-code-backup`,
     ignoreFocusOut: true,
-    validateInput: (value) => (parseRepoInput(value) ? undefined : 'Informe usuario/repo, https://github.com/usuario/repo ou git@github.com:usuario/repo.git'),
+    validateInput: (value) => (parseRepoInput(value) ? undefined : t('Enter user/repo, https://github.com/user/repo or git@github.com:user/repo.git')),
   });
   if (repoInput === undefined) {
     return undefined;
@@ -475,34 +477,36 @@ async function chooseRepository(context: vscode.ExtensionContext, auth: GitHubAu
   const gh = new GitHubService(parseRepoInput(repoInput)!, auth.token, log);
   let publicAccepted = false;
   try {
-    const ok = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Claude Sync: validando acesso ao repositório...' }, async () => {
+    const ok = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: t('Claude Sync: checking repository access...') }, async () => {
       try {
         const repo = await gh.getRepository();
         if (repo.permissions && repo.permissions.push === false) {
-          void vscode.window.showWarningMessage(`A conta ${auth.login} não tem permissão de escrita em ${repo.full_name}; apenas Pull funcionará.`);
+          void vscode.window.showWarningMessage(t('The account {0} has no write access to {1}; only Pull will work.', auth.login, repo.full_name));
         }
         if (!repo.private) {
+          const useAnyway = t('Use anyway');
           const answer = await vscode.window.showWarningMessage(
-            `O repositório ${repo.full_name} é PÚBLICO. Suas conversas com o Claude podem conter código e segredos. Deseja usá-lo mesmo assim?`,
+            t('The repository {0} is PUBLIC. Your Claude conversations can contain code and secrets. Use it anyway?', repo.full_name),
             { modal: true },
-            'Usar mesmo assim',
+            useAnyway,
           );
-          publicAccepted = answer === 'Usar mesmo assim';
+          publicAccepted = answer === useAnyway;
           return publicAccepted;
         }
         return true;
       } catch (err) {
         if (err instanceof GitHubError && err.kind === 'notFound') {
+          const create = t('Create private repository');
           const answer = await vscode.window.showInformationMessage(
-            `O repositório ${gh.fullName} não existe (ou a conta ${auth.login} não tem acesso a ele). Criar agora como repositório privado?`,
+            t('The repository {0} does not exist (or the account {1} has no access to it). Create it now as a private repository?', gh.fullName, auth.login),
             { modal: true },
-            'Criar repositório privado',
+            create,
           );
-          if (answer !== 'Criar repositório privado') {
+          if (answer !== create) {
             return false;
           }
           await gh.createPrivateRepository();
-          log(`Repositório privado ${gh.fullName} criado.`);
+          log(t('Private repository {0} created.', gh.fullName));
           return true;
         }
         throw err;
@@ -514,7 +518,7 @@ async function chooseRepository(context: vscode.ExtensionContext, auth: GitHubAu
   } catch (err) {
     const hint =
       auth.method === 'token' && err instanceof GitHubError && (err.kind === 'forbidden' || err.kind === 'notFound')
-        ? ' Tokens fine-grained não criam repositórios: crie-o no GitHub e inclua-o no token.'
+        ? ` ${t('Fine-grained tokens cannot create repositories: create it on GitHub and include it in the token.')}`
         : '';
     void vscode.window.showErrorMessage(`Claude Sync: ${(err as Error).message}${hint}`);
     return undefined;
@@ -535,30 +539,31 @@ async function saveAuth(context: vscode.ExtensionContext, auth: GitHubAuth): Pro
   }
   await context.globalState.update(SIGNED_OUT_KEY, false);
   if (config.get<string>('githubToken', '')) {
+    const remove = t('Remove');
     const answer = await vscode.window.showInformationMessage(
-      'Existe um token em texto puro em "claudeSync.githubToken" no settings.json, que não é mais necessário. Removê-lo?',
-      'Remover',
-      'Manter',
+      t('There is a plain-text token in "claudeSync.githubToken" in settings.json that is no longer needed. Remove it?'),
+      remove,
+      t('Keep'),
     );
-    if (answer === 'Remover') {
+    if (answer === remove) {
       await config.update('githubToken', undefined, vscode.ConfigurationTarget.Global);
     }
   }
-  log(`Conectado ao GitHub como ${auth.login} (${auth.method === 'login' ? 'login do VS Code' : 'token manual'}).`);
+  log(t('Connected to GitHub as {0} ({1}).', auth.login, auth.method === 'login' ? t('VS Code sign-in') : t('manual token')));
 }
 
 /** Configuração completa: conta + repositório. */
 async function configureCredentials(context: vscode.ExtensionContext): Promise<boolean> {
-  const auth = await chooseAuth(context, 'Claude Sync (1/2): como acessar o GitHub?');
+  const auth = await chooseAuth(context, t('Claude Sync (1/2): how should it access GitHub?'));
   if (!auth) {
     return false;
   }
-  const repo = await chooseRepository(context, auth, 'Claude Sync (2/2): repositório GitHub privado');
+  const repo = await chooseRepository(context, auth, t('Claude Sync (2/2): private GitHub repository'));
   if (!repo) {
     return false;
   }
   await saveAuth(context, auth);
-  void vscode.window.showInformationMessage(`Claude Sync configurado: ${auth.login} → ${repo}.`);
+  void vscode.window.showInformationMessage(t('Claude Sync configured: {0} → {1}.', auth.login, repo));
   return true;
 }
 
@@ -577,14 +582,14 @@ async function changeRepository(context: vscode.ExtensionContext): Promise<boole
   }
   const method = (await context.secrets.get(SECRET_TOKEN_KEY)) ? 'token' : 'login';
   const previous = await getRepoSetting();
-  const repo = await chooseRepository(context, { token, login, method }, 'Claude Sync: trocar repositório de backup');
+  const repo = await chooseRepository(context, { token, login, method }, t('Claude Sync: change backup repository'));
   if (!repo) {
     return false;
   }
   void vscode.window.showInformationMessage(
     previous && parseRepoInput(previous) && `${parseRepoInput(previous)!.owner}/${parseRepoInput(previous)!.repo}`.toLowerCase() !== repo.toLowerCase()
-      ? `Claude Sync agora usa ${repo}. O backup em ${previous} não foi alterado nem apagado.`
-      : `Claude Sync usando ${repo}.`,
+      ? t('Claude Sync now uses {0}. The backup in {1} was not changed or deleted.', repo, previous)
+      : t('Claude Sync using {0}.', repo),
   );
   return true;
 }
@@ -595,22 +600,22 @@ async function switchAccount(context: vscode.ExtensionContext): Promise<boolean>
   const choice = await vscode.window.showQuickPick(
     [
       {
-        label: '$(account) Escolher entre as contas já conectadas no VS Code',
-        detail: 'Se houver mais de uma conta do GitHub no VS Code, você escolhe qual usar.',
+        label: `$(account) ${t('Choose among accounts already connected to VS Code')}`,
+        detail: t('If VS Code has more than one GitHub account, you pick which one to use.'),
         mode: 'pick' as const,
       },
       {
-        label: '$(sign-in) Entrar com outra conta do GitHub',
-        detail: 'Abre o login no navegador. Se ele entrar sozinho na conta atual, saia dela no github.com ou use uma janela anônima.',
+        label: `$(sign-in) ${t('Sign in with another GitHub account')}`,
+        detail: t('Opens the browser sign-in. If it signs in to the current account by itself, sign out of it on github.com or use a private window.'),
         mode: 'new' as const,
       },
       {
-        label: '$(key) Usar um token de acesso (PAT)',
-        detail: 'Token restrito a um único repositório.',
+        label: `$(key) ${t('Use an access token (PAT)')}`,
+        detail: t('Token restricted to a single repository.'),
         mode: 'token' as const,
       },
     ],
-    { title: 'Claude Sync: trocar conta do GitHub', placeHolder: current ? `Conexão atual: ${current}` : undefined, ignoreFocusOut: true },
+    { title: t('Claude Sync: switch GitHub account'), placeHolder: current ? t('Current connection: {0}', current) : undefined, ignoreFocusOut: true },
   );
   if (!choice) {
     return false;
@@ -620,43 +625,44 @@ async function switchAccount(context: vscode.ExtensionContext): Promise<boolean>
     return false;
   }
   // A nova conta pode não ter acesso ao repositório atual: confirma (ou troca) o repositório.
-  const repo = await chooseRepository(context, auth, 'Claude Sync: repositório de backup para esta conta');
+  const repo = await chooseRepository(context, auth, t('Claude Sync: backup repository for this account'));
   if (!repo) {
     return false;
   }
   await saveAuth(context, auth);
-  void vscode.window.showInformationMessage(`Claude Sync agora conectado como ${auth.login} → ${repo}.`);
+  void vscode.window.showInformationMessage(t('Claude Sync now connected as {0} → {1}.', auth.login, repo));
   return true;
 }
 
 /** Desconecta a extensão do GitHub. Não apaga conversas locais nem o backup remoto. */
 async function signOut(context: vscode.ExtensionContext): Promise<boolean> {
   if (!(await getToken(context))) {
-    void vscode.window.showInformationMessage('Claude Sync não está conectado ao GitHub.');
+    void vscode.window.showInformationMessage(t('Claude Sync is not connected to GitHub.'));
     return false;
   }
   const current = await describeConnection(context);
+  const disconnect = t('Disconnect');
   const answer = await vscode.window.showWarningMessage(
-    `Desconectar o Claude Sync do GitHub${current ? ` (${current})` : ''}?`,
+    current ? t('Disconnect Claude Sync from GitHub ({0})?', current) : t('Disconnect Claude Sync from GitHub?'),
     {
       modal: true,
-      detail:
-        'A sincronização (inclusive a automática) para até você se conectar de novo. Suas conversas locais e o backup no GitHub NÃO são apagados.',
+      detail: t('Syncing (including auto-sync) stops until you connect again. Your local conversations and the GitHub backup are NOT deleted.'),
     },
-    'Desconectar',
+    disconnect,
   );
-  if (answer !== 'Desconectar') {
+  if (answer !== disconnect) {
     return false;
   }
   await context.secrets.delete(SECRET_TOKEN_KEY);
   await context.globalState.update(SIGNED_OUT_KEY, true);
   loginCache.clear();
-  log('Claude Sync desconectado do GitHub.');
+  log(t('Claude Sync disconnected from GitHub.'));
+  const connectAnother = t('Connect another account');
   const next = await vscode.window.showInformationMessage(
-    'Claude Sync desconectado. A conta do GitHub continua conectada ao VS Code (é usada por outros recursos); para sair dela também, use o menu Contas, no canto inferior esquerdo.',
-    'Conectar outra conta',
+    t('Claude Sync disconnected. The GitHub account stays connected to VS Code (other features use it); to sign out of it too, use the Accounts menu in the bottom-left corner.'),
+    connectAnother,
   );
-  if (next === 'Conectar outra conta') {
+  if (next === connectAnother) {
     await vscode.commands.executeCommand('claudeSync.configure');
   }
   return true;
@@ -670,14 +676,13 @@ type ScopeChoice = 'all' | 'current' | 'projects' | 'sessions';
 
 async function pickScope(direction: SyncDirection, engine: SyncEngine, storage: ClaudeStorageService): Promise<SyncScope | undefined> {
   const hasWorkspace = (vscode.workspace.workspaceFolders ?? []).some((f) => f.uri.scheme === 'file');
-  const verb = direction === 'push' ? 'Enviar' : 'Baixar';
   const items: (vscode.QuickPickItem & { choice: ScopeChoice })[] = [
-    { label: '$(globe) Tudo', description: direction === 'push' ? 'todos os projetos locais' : 'todos os projetos do repositório', choice: 'all' },
-    ...(hasWorkspace ? [{ label: '$(root-folder) Projeto atual', description: 'projeto aberto neste VS Code', choice: 'current' as const }] : []),
-    { label: '$(list-selection) Projetos selecionados...', choice: 'projects' },
-    { label: '$(comment-discussion) Conversas específicas...', choice: 'sessions' },
+    { label: `$(globe) ${t('Everything')}`, description: direction === 'push' ? t('all local projects') : t('all projects in the repository'), choice: 'all' },
+    ...(hasWorkspace ? [{ label: `$(root-folder) ${t('Current project')}`, description: t('project open in this VS Code'), choice: 'current' as const }] : []),
+    { label: `$(list-selection) ${t('Selected projects...')}`, choice: 'projects' },
+    { label: `$(comment-discussion) ${t('Specific conversations...')}`, choice: 'sessions' },
   ];
-  const picked = await vscode.window.showQuickPick(items, { title: `Claude Sync: ${verb} — o quê?`, ignoreFocusOut: true });
+  const picked = await vscode.window.showQuickPick(items, { title: direction === 'push' ? t('Claude Sync: Push — what?') : t('Claude Sync: Pull — what?'), ignoreFocusOut: true });
   if (!picked) {
     return undefined;
   }
@@ -703,11 +708,11 @@ async function pickScope(direction: SyncDirection, engine: SyncEngine, storage: 
 async function pickDirection(): Promise<SyncDirection | undefined> {
   const picked = await vscode.window.showQuickPick(
     [
-      { label: '$(sync) Sincronizar (bi-direcional)', direction: 'sync' as const, description: 'merge sem perdas nos dois sentidos' },
-      { label: '$(cloud-upload) Enviar (Push)', direction: 'push' as const, description: 'local → GitHub' },
-      { label: '$(cloud-download) Baixar (Pull)', direction: 'pull' as const, description: 'GitHub → local' },
+      { label: `$(sync) ${t('Sync (bi-directional)')}`, direction: 'sync' as const, description: t('lossless merge both ways') },
+      { label: `$(cloud-upload) ${t('Upload (Push)')}`, direction: 'push' as const, description: 'local → GitHub' },
+      { label: `$(cloud-download) ${t('Download (Pull)')}`, direction: 'pull' as const, description: 'GitHub → local' },
     ],
-    { title: 'Claude Sync: o que fazer com as conversas selecionadas?', ignoreFocusOut: true },
+    { title: t('Claude Sync: what to do with the selected conversations?'), ignoreFocusOut: true },
   );
   return picked?.direction;
 }
@@ -718,7 +723,7 @@ async function pickCurrentProjectKeys(engine: SyncEngine): Promise<string[] | un
   if (folders.length > 1) {
     const picked = await vscode.window.showQuickPick(
       folders.map((f) => ({ label: f.name, description: f.uri.fsPath, folder: f })),
-      { title: 'Qual pasta do workspace?', canPickMany: true, ignoreFocusOut: true },
+      { title: t('Which workspace folder?'), canPickMany: true, ignoreFocusOut: true },
     );
     if (!picked?.length) {
       return undefined;
@@ -728,14 +733,14 @@ async function pickCurrentProjectKeys(engine: SyncEngine): Promise<string[] | un
   const keys: string[] = [];
   for (const folder of selected) {
     const key = await engine.resolveKeyForPath(folder.uri.fsPath);
-    log(`Workspace ${folder.uri.fsPath} -> projeto remoto "${key}" (pasta Claude: ${encodeProjectPath(folder.uri.fsPath)})`);
+    log(t('Workspace {0} -> remote project "{1}" (Claude folder: {2})', folder.uri.fsPath, key, encodeProjectPath(folder.uri.fsPath)));
     keys.push(key);
   }
   return keys;
 }
 
 async function loadRemoteForPicker(engine: SyncEngine): Promise<Map<string, RemoteProject>> {
-  return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Claude Sync: lendo o repositório remoto...' }, async () => {
+  return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: t('Claude Sync: reading the remote repository...') }, async () => {
     return (await engine.getRemoteState(true)).projects;
   });
 }
@@ -760,7 +765,7 @@ async function pickProjects(direction: SyncDirection, engine: SyncEngine): Promi
     }
   }
   if (entries.size === 0) {
-    void vscode.window.showInformationMessage('Claude Sync: nenhum projeto encontrado.');
+    void vscode.window.showInformationMessage(t('Claude Sync: no projects found.'));
     return undefined;
   }
   const picked = await vscode.window.showQuickPick(
@@ -768,11 +773,11 @@ async function pickProjects(direction: SyncDirection, engine: SyncEngine): Promi
       .sort(([, a], [, b]) => a.label.localeCompare(b.label))
       .map(([key, e]) => ({
         label: e.label,
-        description: [direction !== 'pull' ? `${e.local} local` : '', direction !== 'push' ? `${e.remote} no GitHub` : ''].filter(Boolean).join(' · '),
+        description: [direction !== 'pull' ? t('{0} local', e.local) : '', direction !== 'push' ? t('{0} on GitHub', e.remote) : ''].filter(Boolean).join(' · '),
         detail: e.path ? `${key} — ${e.path}` : key,
         key,
       })),
-    { title: 'Claude Sync: selecione os projetos', canPickMany: true, matchOnDetail: true, ignoreFocusOut: true },
+    { title: t('Claude Sync: select projects'), canPickMany: true, matchOnDetail: true, ignoreFocusOut: true },
   );
   return picked?.map((p) => p.key);
 }
@@ -836,11 +841,11 @@ async function pickSessions(direction: SyncDirection, engine: SyncEngine, storag
     items.push(...[...group.items.values()].sort((a, b) => b.time - a.time));
   }
   if (items.length === 0) {
-    void vscode.window.showInformationMessage('Claude Sync: nenhuma conversa encontrada.');
+    void vscode.window.showInformationMessage(t('Claude Sync: no conversations found.'));
     return undefined;
   }
   const picked = await vscode.window.showQuickPick(items, {
-    title: 'Claude Sync: selecione as conversas ($(device-desktop) só local · $(cloud) só GitHub · $(sync) nos dois)',
+    title: t('Claude Sync: select conversations ($(device-desktop) local only · $(cloud) GitHub only · $(sync) both)'),
     canPickMany: true,
     matchOnDescription: true,
     matchOnDetail: true,
@@ -857,7 +862,7 @@ async function askLocalPathForProject(project: RemoteProject, suggestedPath?: st
     .filter((f) => f.uri.scheme === 'file')
     .map((f) => ({ label: `$(root-folder) ${f.name}`, description: f.uri.fsPath, action: 'workspace', fsPath: f.uri.fsPath }));
   if (suggestedPath && !workspaceItems.some((i) => i.fsPath === suggestedPath)) {
-    workspaceItems.unshift({ label: `$(history) ${suggestedPath}`, description: 'mesmo caminho usado em outra máquina', action: 'workspace', fsPath: suggestedPath });
+    workspaceItems.unshift({ label: `$(history) ${suggestedPath}`, description: t('same path used on another machine'), action: 'workspace', fsPath: suggestedPath });
   }
   const knownPaths = Object.entries(project.metadata?.knownPaths ?? {})
     .map(([host, paths]) => `${host}: ${paths.join(', ')}`)
@@ -866,12 +871,12 @@ async function askLocalPathForProject(project: RemoteProject, suggestedPath?: st
   const picked = await vscode.window.showQuickPick<Choice>(
     [
       ...workspaceItems,
-      { label: '$(folder-opened) Selecionar a pasta do projeto nesta máquina...', action: 'browse' },
-      { label: '$(circle-slash) Ignorar este projeto agora', action: 'skip' },
+      { label: `$(folder-opened) ${t('Select the project folder on this machine...')}`, action: 'browse' },
+      { label: `$(circle-slash) ${t('Skip this project for now')}`, action: 'skip' },
     ],
     {
-      title: `Onde fica o projeto "${name}" nesta máquina?`,
-      placeHolder: knownPaths ? `Caminhos em outras máquinas — ${knownPaths}` : 'As sessões serão gravadas na pasta do Claude Code correspondente a este caminho',
+      title: t('Where is the project "{0}" on this machine?', name),
+      placeHolder: knownPaths ? t('Paths on other machines — {0}', knownPaths) : t('Sessions will be saved in the Claude Code folder for this path'),
       ignoreFocusOut: true,
     },
   );
@@ -885,8 +890,8 @@ async function askLocalPathForProject(project: RemoteProject, suggestedPath?: st
     canSelectFiles: false,
     canSelectFolders: true,
     canSelectMany: false,
-    title: `Pasta do projeto "${name}" nesta máquina`,
-    openLabel: 'Usar esta pasta',
+    title: t('Folder of the project "{0}" on this machine', name),
+    openLabel: t('Use this folder'),
   });
   return uris?.[0]?.fsPath;
 }
@@ -907,71 +912,72 @@ function setStatus(state: 'idle' | 'syncing' | 'done' | 'error', detail?: string
   switch (state) {
     case 'idle':
       statusBar.text = '$(cloud) Claude Sync';
-      statusBar.tooltip = 'Claude Sync — clique para sincronizar agora';
+      statusBar.tooltip = t('Claude Sync — click to sync now');
       break;
     case 'syncing':
       statusBar.text = '$(sync~spin) Claude Syncing...';
-      statusBar.tooltip = 'Sincronizando sessões do Claude Code com o GitHub';
+      statusBar.tooltip = t('Syncing Claude Code sessions with GitHub');
       break;
     case 'done':
       statusBar.text = '$(check) Claude Synced';
-      statusBar.tooltip = `Última sincronização: ${new Date().toLocaleString()}${detail ? `\n${detail}` : ''}\nClique para sincronizar novamente`;
+      statusBar.tooltip = `${t('Last sync: {0}', new Date().toLocaleString())}${detail ? `\n${detail}` : ''}\n${t('Click to sync again')}`;
       break;
     case 'error':
       statusBar.text = '$(error) Claude Sync';
-      statusBar.tooltip = `Falha na sincronização: ${detail ?? ''}\nClique para tentar novamente`;
+      statusBar.tooltip = `${t('Sync failed: {0}', detail ?? '')}\n${t('Click to try again')}`;
       statusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
       break;
   }
 }
 
 function labelFor(direction: SyncDirection): string {
-  return direction === 'push' ? 'Push' : direction === 'pull' ? 'Pull' : 'Sincronização';
+  return direction === 'push' ? 'Push' : direction === 'pull' ? 'Pull' : t('Sync');
 }
 
 function describeScope(scope: SyncScope): string {
   switch (scope.kind) {
     case 'all':
-      return 'tudo';
+      return t('everything');
     case 'projects':
-      return `projetos ${scope.keys.join(', ')}`;
+      return t('projects {0}', scope.keys.join(', '));
     case 'sessions':
-      return `${scope.sessions.length} sessão(ões)${scope.wholeProjects?.length ? ` + projetos ${scope.wholeProjects.join(', ')}` : ''}`;
+      return `${t('{0} session(s)', scope.sessions.length)}${scope.wholeProjects?.length ? ` + ${t('projects {0}', scope.wholeProjects.join(', '))}` : ''}`;
   }
 }
 
 function summarize(report: SyncReport): string {
   const parts = [
-    `${report.uploaded} enviado(s)`,
-    `${report.downloaded} baixado(s)`,
-    report.merged ? `${report.merged} mesclado(s)` : '',
-    report.backups.length ? `${report.backups.length} backup(s) .bak` : '',
-    report.skipped ? `${report.skipped} adiado(s)` : '',
+    t('{0} uploaded', report.uploaded),
+    t('{0} downloaded', report.downloaded),
+    report.merged ? t('{0} merged', report.merged) : '',
+    report.backups.length ? t('{0} .bak backup(s)', report.backups.length) : '',
+    report.skipped ? t('{0} postponed', report.skipped) : '',
   ];
   return parts.filter(Boolean).join(', ');
 }
 
 function logReport(report: SyncReport): void {
-  log(`Resultado: ${report.projects} projeto(s); ${summarize(report)}; ${report.unchanged} sem alteração.`);
+  log(t('Result: {0} project(s); {1}; {2} unchanged.', report.projects, summarize(report), report.unchanged));
   if (report.commitSha) {
-    log(`Commit remoto: ${report.commitSha}`);
+    log(t('Remote commit: {0}', report.commitSha));
   }
   for (const backup of report.backups) {
-    log(`Backup criado: ${backup}`);
+    log(t('Backup created: {0}', backup));
   }
   for (const warning of report.warnings) {
-    log(`Aviso: ${warning}`);
+    log(t('Warning: {0}', warning));
   }
 }
 
 async function showReport(report: SyncReport): Promise<void> {
   const nothing = report.uploaded + report.downloaded + report.merged === 0;
-  const message = nothing ? `Claude Sync: tudo em dia (${report.unchanged} arquivo(s) conferidos).` : `Claude Sync: ${summarize(report)}.`;
-  const actions = report.warnings.length || report.backups.length ? ['Ver detalhes'] : [];
+  const message = nothing ? t('Claude Sync: everything up to date ({0} file(s) checked).', report.unchanged) : `Claude Sync: ${summarize(report)}.`;
+  const details = t('Show details');
+  const actions = report.warnings.length || report.backups.length ? [details] : [];
   const answer = report.warnings.length
-    ? await vscode.window.showWarningMessage(`${message} ${report.warnings.length} aviso(s).`, ...actions)
+    ? await vscode.window.showWarningMessage(`${message} ${t('{0} warning(s).', report.warnings.length)}`, ...actions)
     : await vscode.window.showInformationMessage(message, ...actions);
-  if (answer === 'Ver detalhes') {
+  if (answer === details) {
     output.show();
   }
 }
@@ -979,7 +985,7 @@ async function showReport(report: SyncReport): Promise<void> {
 function handleSyncError(err: unknown, mode: 'manual' | 'auto'): void {
   const message = (err as Error)?.message ?? String(err);
   const kind = err instanceof GitHubError ? err.kind : 'other';
-  log(`ERRO (${kind}): ${message}`);
+  log(t('ERROR ({0}): {1}', kind, message));
   if (err instanceof Error && err.stack && !(err instanceof GitHubError)) {
     log(err.stack);
   }
@@ -993,11 +999,13 @@ function handleSyncError(err: unknown, mode: 'manual' | 'auto'): void {
     lastAutoSyncErrorKind = kind;
   }
   const needsConfig = kind === 'auth' || kind === 'notFound' || kind === 'forbidden';
-  const actions = needsConfig ? ['Configurar', 'Ver log'] : ['Ver log'];
+  const configure = t('Configure');
+  const showLog = t('Show log');
+  const actions = needsConfig ? [configure, showLog] : [showLog];
   void vscode.window.showErrorMessage(`Claude Sync: ${message}`, ...actions).then((answer) => {
-    if (answer === 'Configurar') {
+    if (answer === configure) {
       void vscode.commands.executeCommand('claudeSync.configure');
-    } else if (answer === 'Ver log') {
+    } else if (answer === showLog) {
       output.show();
     }
   });

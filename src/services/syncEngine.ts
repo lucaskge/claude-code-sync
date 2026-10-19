@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
+import { t } from '../i18n';
 import {
   ClaudeStorageService,
   LocalFile,
@@ -133,7 +134,7 @@ export interface SyncHost {
 
 export class SyncBusyError extends Error {
   constructor() {
-    super('Já existe uma sincronização em andamento.');
+    super(t('A sync is already in progress.'));
   }
 }
 
@@ -221,7 +222,7 @@ export class SyncEngine {
           return report;
         } catch (err) {
           if (err instanceof GitHubError && err.kind === 'conflict' && attempt < MAX_CONFLICT_RETRIES) {
-            this.host.log(`Conflito de commit (tentativa ${attempt}); recarregando o estado remoto e mesclando de novo...`);
+            this.host.log(t('Commit conflict (attempt {0}); reloading the remote state and merging again...', attempt));
             continue;
           }
           throw err;
@@ -251,20 +252,20 @@ export class SyncEngine {
       warnings: [],
     };
 
-    progress(`Lendo estado remoto de ${gh.fullName}...`);
+    progress(t('Reading remote state of {0}...', gh.fullName));
     let remote = await this.loadRemoteState(gh);
     if (remote.snapshot.empty) {
       if (direction === 'pull') {
         this.remoteCache = remote;
-        report.warnings.push('O repositório remoto ainda está vazio — nada para baixar.');
+        report.warnings.push(t('The remote repository is still empty — nothing to download.'));
         return report;
       }
-      progress('Repositório vazio; criando commit inicial...');
+      progress(t('Empty repository; creating the initial commit...'));
       await gh.initializeRepository();
       remote = await this.loadRemoteState(gh);
     }
 
-    progress('Lendo sessões locais...');
+    progress(t('Reading local sessions...'));
     const localProjects = await this.listLocalProjects();
     const keys = this.keysInScope(options.scope, direction, localProjects, remote);
     const scope = options.scope;
@@ -278,7 +279,7 @@ export class SyncEngine {
 
     for (const key of keys) {
       report.projects++;
-      progress(`Projeto ${key}...`);
+      progress(t('Project {0}...', key));
       const ctx = new ProjectContext(key, localProjects.filter((p) => p.key === key), remote.projects.get(key));
       await this.syncProject(gh, ctx, options, report, uploads, sessionFilter);
 
@@ -301,23 +302,23 @@ export class SyncEngine {
       const repo = await gh.getRepository();
       if (!repo.private && !this.host.isPublicRepoAllowed?.(repo.full_name.toLowerCase())) {
         throw new GitHubError(
-          `O repositório ${repo.full_name} é PÚBLICO. Envio bloqueado para não expor suas conversas; torne-o privado ou reconfigure o repositório.`,
+          t('The repository {0} is PUBLIC. Upload blocked so your conversations are not exposed; make it private or choose another repository.', repo.full_name),
           'forbidden',
         );
       }
-      progress(`Enviando ${uploads.size} arquivo(s) para o GitHub...`);
-      const message = `Claude Sync (${direction}) de ${this.hostname}: ${uploads.size} arquivo(s), ${metadataUpdates.size} índice(s)`;
+      progress(t('Uploading {0} file(s) to GitHub...', uploads.size));
+      const message = `Claude Sync (${direction}) from ${this.hostname}: ${uploads.size} file(s), ${metadataUpdates.size} index(es)`;
       const result = await gh.commitFiles(remote.snapshot, changes, message, (done, total) => {
-        options.onProgress?.(`Enviando arquivos (${done}/${total})...`);
+        options.onProgress?.(t('Uploading files ({0}/{1})...', done, total));
       });
       for (const failure of result.failed) {
         report.uploaded = Math.max(0, report.uploaded - 1);
         report.skipped++;
-        report.warnings.push(`${failure.group}: não enviado — ${failure.message}`);
+        report.warnings.push(t('{0}: not uploaded — {1}', failure.group, failure.message));
       }
       if (result.sha) {
         report.commitSha = result.sha;
-        progress(`Commit ${result.sha.slice(0, 7)} criado.`);
+        progress(t('Commit {0} created.', result.sha.slice(0, 7)));
       }
       this.remoteCache = undefined;
     } else {
@@ -450,7 +451,7 @@ export class SyncEngine {
         report.downloaded++;
       } else {
         report.skipped++;
-        report.warnings.push(`${ctx.key}/${relPath}: arquivo surgiu localmente durante a sincronização; será mesclado na próxima.`);
+        report.warnings.push(t('{0}: file appeared locally during the sync; it will be merged next time.', `${ctx.key}/${relPath}`));
       }
       return;
     }
@@ -487,14 +488,14 @@ export class SyncEngine {
           this.queueUpload(uploads, remotePath, localRead.content, report);
         } else {
           report.unchanged++;
-          this.host.log(`${ctx.key}/${relPath}: versão local já contém tudo do remoto (mantida).`);
+          this.host.log(t('{0}: the local version already contains everything from the remote (kept).', `${ctx.key}/${relPath}`));
         }
         return;
 
       case 'takeRemote':
         if (!canPull) {
           report.skipped++;
-          report.warnings.push(`${ctx.key}/${relPath}: o remoto tem eventos mais novos; use Pull ou Sync para trazê-los.`);
+          report.warnings.push(t('{0}: the remote has newer events; use Pull or Sync to bring them in.', `${ctx.key}/${relPath}`));
           return;
         }
         if (await this.writeLocal(local, localRead, decision.content, decision.backup, report, `${ctx.key}/${relPath}`)) {
@@ -517,7 +518,7 @@ export class SyncEngine {
   private queueUpload(uploads: Map<string, Buffer>, remotePath: string, content: Buffer, report: SyncReport): void {
     if (content.length > MAX_REMOTE_FILE_BYTES) {
       report.skipped++;
-      report.warnings.push(`${remotePath}: ${(content.length / 1024 / 1024).toFixed(1)} MB é grande demais para sincronizar (limite: 1 GB); não enviado.`);
+      report.warnings.push(t('{0}: {1} MB is too large to sync (limit: 1 GB); not uploaded.', remotePath, (content.length / 1024 / 1024).toFixed(1)));
       return;
     }
     uploads.set(remotePath, content);
@@ -535,7 +536,7 @@ export class SyncEngine {
   ): Promise<boolean> {
     if (Date.now() - read.mtimeMs < ACTIVE_WINDOW_MS) {
       report.skipped++;
-      report.warnings.push(`${label}: sessão em uso agora pelo Claude Code; atualização local adiada para a próxima sincronização.`);
+      report.warnings.push(t('{0}: session currently in use by Claude Code; local update postponed to the next sync.', label));
       return false;
     }
     const backupPath = backup ? await this.storage.backupFile(local.absPath) : undefined;
@@ -545,7 +546,7 @@ export class SyncEngine {
         await fs.promises.rm(backupPath, { force: true });
       }
       report.skipped++;
-      report.warnings.push(`${label}: arquivo mudou durante a sincronização; atualização local adiada.`);
+      report.warnings.push(t('{0}: file changed during the sync; local update postponed.', label));
       return false;
     }
     if (backupPath) {
@@ -603,7 +604,7 @@ export class SyncEngine {
 
     if (!folderName) {
       ctx.downloadDir = '';
-      this.host.log(`Projeto ${ctx.key} não tem pasta local associada nesta máquina; sessões remotas ignoradas.`);
+      this.host.log(t('Project {0} has no local folder on this machine; remote sessions skipped.', ctx.key));
       return undefined;
     }
 
@@ -690,7 +691,7 @@ export class SyncEngine {
   /** Lê o conteúdo de um arquivo remoto, remontando-o se estiver dividido em partes. */
   private async readRemote(gh: GitHubService, file: RemoteFile): Promise<Buffer> {
     if (file.size > MAX_REMOTE_FILE_BYTES) {
-      throw new Error(`arquivo remoto grande demais (${(file.size / 1024 / 1024).toFixed(1)} MB; limite: 1 GB)`);
+      throw new Error(t('remote file too large ({0} MB; limit: 1 GB)', (file.size / 1024 / 1024).toFixed(1)));
     }
     if (!file.chunked) {
       return gh.getBlob(file.sha);
@@ -700,7 +701,7 @@ export class SyncEngine {
     for (const name of file.chunked.manifest.parts) {
       const sha = file.chunked.partShas.get(dir + name);
       if (!sha) {
-        throw new Error(`parte ${name} ausente no remoto`);
+        throw new Error(t('part {0} missing on the remote', name));
       }
       parts.push(await gh.getBlob(sha));
     }
@@ -765,7 +766,7 @@ export class SyncEngine {
 
     await runWithConcurrency([...groups.entries()], 4, async ([basePath, group]) => {
       if (!group.manifest) {
-        this.host.log(`${basePath}: partes sem manifesto no remoto; ignorado.`);
+        this.host.log(t('{0}: parts without a manifest on the remote; skipped.', basePath));
         return;
       }
       let manifest = this.manifestCache.get(group.manifest.sha);
@@ -777,7 +778,7 @@ export class SyncEngine {
           if (err instanceof GitHubError && err.kind !== 'other' && err.kind !== 'notFound') {
             throw err;
           }
-          this.host.log(`${basePath}: manifesto inválido (${(err as Error).message}); ignorado.`);
+          this.host.log(t('{0}: invalid manifest ({1}); skipped.', basePath, (err as Error).message));
           return;
         }
       }
@@ -805,7 +806,7 @@ export class SyncEngine {
       const key = rest.slice(0, slash);
       const relPath = rest.slice(slash + 1);
       if (!isSafeName(key)) {
-        this.host.log(`Projeto remoto com nome inválido ignorado: ${JSON.stringify(key)}`);
+        this.host.log(t('Remote project with an invalid name skipped: {0}', JSON.stringify(key)));
         continue;
       }
       let project = projects.get(key);
@@ -820,7 +821,7 @@ export class SyncEngine {
       const sessionId = relPath.includes('/') ? relPath.slice(0, relPath.indexOf('/')) : relPath.endsWith('.jsonl') ? relPath.slice(0, -'.jsonl'.length) : undefined;
       if (!sessionId || !isSafeName(sessionId)) {
         if (sessionId) {
-          this.host.log(`Sessão remota com nome inválido ignorada: ${key}/${JSON.stringify(sessionId)}`);
+          this.host.log(t('Remote session with an invalid name skipped: {0}', `${key}/${JSON.stringify(sessionId)}`));
         }
         continue;
       }
@@ -855,7 +856,7 @@ export class SyncEngine {
           if (err instanceof GitHubError && (err.kind === 'auth' || err.kind === 'rateLimit')) {
             throw err;
           }
-          this.host.log(`metadata.json inválido em ${key}: ${(err as Error).message}`);
+          this.host.log(t('Invalid metadata.json in {0}: {1}', key, (err as Error).message));
           this.metadataBlobCache.set(file.sha, undefined);
         }
       }
@@ -977,11 +978,11 @@ class ProjectContext {
 function safeJoin(baseDir: string, relPath: string): string {
   const segments = relPath.split('/');
   if (segments.some((s) => s === '..' || s === '' || s.includes('\\') || s.includes(':'))) {
-    throw new Error(`caminho remoto inválido: ${relPath}`);
+    throw new Error(t('invalid remote path: {0}', relPath));
   }
   const target = path.resolve(baseDir, ...segments);
   if (!target.startsWith(path.resolve(baseDir) + path.sep)) {
-    throw new Error(`caminho remoto fora da pasta do projeto: ${relPath}`);
+    throw new Error(t('remote path outside the project folder: {0}', relPath));
   }
   return target;
 }

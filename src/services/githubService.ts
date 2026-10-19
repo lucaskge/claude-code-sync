@@ -7,6 +7,7 @@
  */
 
 import type { ChunkedInfo } from './chunkedStorage';
+import { t } from '../i18n';
 
 const API_BASE = 'https://api.github.com';
 const USER_AGENT = 'claude-code-sync-vscode';
@@ -151,7 +152,7 @@ export class GitHubService {
       name: this.ref.repo,
       private: true,
       auto_init: true,
-      description: 'Backup das sessões do Claude Code (Claude Code Sync)',
+      description: 'Claude Code session backup (Claude Code Sync)',
     };
     if (login.toLowerCase() === this.ref.owner.toLowerCase()) {
       await this.request('POST', '/user/repos', body);
@@ -166,17 +167,17 @@ export class GitHubService {
     const readme = [
       '# Claude Code Sync',
       '',
-      'Backup automático das sessões do Claude Code gerado pela extensão **Claude Code Sync** do VS Code.',
+      'Automatic backup of Claude Code sessions, created by the **Claude Code Sync** VS Code extension.',
       '',
-      '- `repos/<projeto>/<sessionId>.jsonl` — histórico bruto de cada conversa',
-      '- `repos/<projeto>/<sessionId>/...` — subagentes e resultados de ferramentas da sessão',
-      '- `repos/<projeto>/metadata.json` — índice (títulos, datas, caminhos conhecidos por máquina)',
+      '- `repos/<project>/<sessionId>.jsonl` — raw history of each conversation',
+      '- `repos/<project>/<sessionId>/...` — subagents and tool results of the session',
+      '- `repos/<project>/metadata.json` — index (titles, dates, known paths per machine)',
       '',
-      '> Mantenha este repositório **privado**: as conversas podem conter código e dados sensíveis.',
+      '> Keep this repository **private**: conversations can contain code and sensitive data.',
       '',
     ].join('\n');
     await this.request('PUT', `/repos/${this.ref.owner}/${this.ref.repo}/contents/README.md`, {
-      message: 'Claude Sync: inicializa repositório',
+      message: 'Claude Sync: initialize repository',
       content: Buffer.from(readme, 'utf8').toString('base64'),
     });
     this.defaultBranch = undefined;
@@ -255,7 +256,7 @@ export class GitHubService {
       }
       return;
     }
-    this.log(`Árvore ${base || '/'} truncada pela API; listando nível a nível.`);
+    this.log(t('Tree {0} truncated by the API; listing level by level.', base || '/'));
     const shallow = await this.getTree(sha, false);
     for (const entry of shallow.tree) {
       if (entry.type === 'blob') {
@@ -278,7 +279,7 @@ export class GitHubService {
    */
   async commitFiles(base: RemoteSnapshot, changes: FileChange[], message: string, onProgress?: (done: number, total: number) => void): Promise<CommitResult> {
     if (base.empty || !base.commitSha || !base.treeSha) {
-      throw new GitHubError('Repositório remoto vazio: inicialize-o antes de enviar arquivos.', 'emptyRepo');
+      throw new GitHubError(t('The remote repository is empty: initialize it before uploading files.'), 'emptyRepo');
     }
     const entries = new Map<FileChange, { path: string; mode: '100644'; type: 'blob'; sha: string | null }>();
     const failedGroups = new Map<string, string>();
@@ -301,7 +302,7 @@ export class GitHubService {
         // Erros de conta/limite/rede afetam tudo: aborta. Erros do próprio arquivo: descarta só o grupo.
         if (err instanceof GitHubError && (err.kind === 'other' || err.status === 422)) {
           failedGroups.set(group, err.message);
-          this.log(`Falha ao enviar ${change.path}: ${err.message}`);
+          this.log(t('Failed to upload {0}: {1}', change.path, err.message));
         } else {
           throw err;
         }
@@ -336,7 +337,7 @@ export class GitHubService {
       });
     } catch (err) {
       if (err instanceof GitHubError && (err.status === 422 || err.status === 409)) {
-        throw new GitHubError('O repositório remoto foi atualizado por outra máquina durante a sincronização.', 'conflict', err.status);
+        throw new GitHubError(t('The remote repository was updated by another machine during the sync.'), 'conflict', err.status);
       }
       throw err;
     }
@@ -366,7 +367,7 @@ export class GitHubService {
         await delay(1000 * 2 ** attempt);
         return this.request<T>(method, apiPath, body, attempt + 1);
       }
-      throw new GitHubError(`Falha de rede ao acessar o GitHub: ${(err as Error).message}`, 'network');
+      throw new GitHubError(t('Network error while accessing GitHub: {0}', (err as Error).message), 'network');
     }
 
     if (response.ok) {
@@ -391,13 +392,13 @@ export class GitHubService {
     // Limite secundário (abuso): o GitHub manda esperar alguns segundos.
     if ((status === 403 || status === 429) && retryAfter && attempt < 3) {
       const waitMs = Math.min(Number(retryAfter) * 1000 || 5000, 60_000);
-      this.log(`Limite secundário da API atingido; aguardando ${Math.round(waitMs / 1000)}s...`);
+      this.log(t('Secondary API rate limit reached; waiting {0}s...', Math.round(waitMs / 1000)));
       await delay(waitMs);
       return this.request<T>(method, apiPath, body, attempt + 1);
     }
     if ((status === 403 || status === 429) && (remaining === '0' || /rate limit/i.test(apiMessage))) {
-      const resetAt = reset ? new Date(Number(reset) * 1000).toLocaleTimeString() : 'em alguns minutos';
-      throw new GitHubError(`Limite de requisições da API do GitHub atingido. Tente novamente após ${resetAt}.`, 'rateLimit', status);
+      const resetAt = reset ? new Date(Number(reset) * 1000).toLocaleTimeString() : t('a few minutes');
+      throw new GitHubError(t('GitHub API rate limit reached. Try again after {0}.', resetAt), 'rateLimit', status);
     }
     if (status >= 500 && attempt < 3) {
       await delay(1000 * 2 ** attempt);
@@ -406,18 +407,18 @@ export class GitHubService {
 
     switch (status) {
       case 401:
-        throw new GitHubError('Token do GitHub inválido ou expirado. Execute "Claude Sync: Configure GitHub Credentials".', 'auth', status);
+        throw new GitHubError(t('The GitHub token is invalid or expired. Run "Claude Sync: Configure GitHub Credentials".'), 'auth', status);
       case 403:
-        throw new GitHubError(`Acesso negado pelo GitHub (${apiMessage}). Verifique se o token tem permissão "repo" / "Contents: Read and write".`, 'forbidden', status);
+        throw new GitHubError(t('Access denied by GitHub ({0}). Check that the token has the "repo" / "Contents: Read and write" permission.', apiMessage), 'forbidden', status);
       case 404:
-        throw new GitHubError(`Repositório ${this.fullName} não encontrado ou sem acesso para este token.`, 'notFound', status);
+        throw new GitHubError(t('Repository {0} not found, or this token has no access to it.', this.fullName), 'notFound', status);
       case 409:
         if (/empty/i.test(apiMessage)) {
-          throw new GitHubError('Repositório remoto vazio.', 'emptyRepo', status);
+          throw new GitHubError(t('The remote repository is empty.'), 'emptyRepo', status);
         }
-        throw new GitHubError(`Conflito no GitHub: ${apiMessage}`, 'conflict', status);
+        throw new GitHubError(t('Conflict on GitHub: {0}', apiMessage), 'conflict', status);
       default:
-        throw new GitHubError(`Erro ${status} da API do GitHub em ${method} ${apiPath}: ${apiMessage}`, 'other', status);
+        throw new GitHubError(t('GitHub API error {0} on {1} {2}: {3}', status, method, apiPath, apiMessage), 'other', status);
     }
   }
 }

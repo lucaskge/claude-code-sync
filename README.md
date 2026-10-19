@@ -1,242 +1,225 @@
 # Claude Code Sync
 
-Extensão do VS Code que faz backup, restore e sincronização bi-direcional das conversas do Claude Code
-(`~/.claude/projects` / `%USERPROFILE%\.claude\projects`) usando um repositório GitHub **privado**. Não precisa do Git CLI.
+**English** · [Português](README.pt-BR.md)
 
-- Continue no notebook a conversa que você começou no desktop.
-- Merge **sem perdas**: quando a mesma conversa avança em duas máquinas, as duas versões são unidas evento a evento.
-- Login pelo GitHub embutido no VS Code: **não há token para criar nem guardar**.
+[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/kslabs.claude-code-session-sync?label=Marketplace&color=E0763F)](https://marketplace.visualstudio.com/items?itemName=kslabs.claude-code-session-sync)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/kslabs.claude-code-session-sync?color=E0763F)](https://marketplace.visualstudio.com/items?itemName=kslabs.claude-code-session-sync)
+[![CI](https://img.shields.io/github/actions/workflow/status/lucaskge/claude-code-sync/ci.yml?branch=master&label=tests)](https://github.com/lucaskge/claude-code-sync/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-> Projeto independente e não oficial, sem vínculo com a Anthropic. "Claude" e "Claude Code" são marcas da Anthropic.
+**Sync Claude Code conversations (sessions, subagents, tool results) across machines via your own private GitHub repository — with a lossless merge and full version history.**
 
-> ⚠️ **Suas conversas com o Claude podem conter código, senhas e chaves de API.** Elas são enviadas ao GitHub sem
-> criptografia adicional, por isso o repositório de backup precisa ser **privado** e **só seu**. Leia a seção
-> [Segurança](#segurança) antes de usar.
+Start a conversation on your desktop and continue it on your laptop. When the same conversation moves forward on two computers, both versions are merged event by event, so nothing is ever overwritten — and every sync is a Git commit you can roll back.
 
----
-
-## Instalação
-
-### Pelo arquivo `.vsix`
-
-1. Baixe o `claude-code-session-sync-<versão>.vsix` na página de [**Releases**](https://github.com/lucaskge/claude-code-sync/releases), ou gere o arquivo você mesmo (veja [Gerar o `.vsix`](#gerar-o-vsix)).
-2. Instale de um destes jeitos:
-   - No VS Code: aba **Extensões** (`Ctrl+Shift+X`) → menu `⋯` → **Install from VSIX...** → escolha o arquivo.
-   - No terminal:
-     ```bash
-     code --install-extension claude-code-session-sync-0.2.3.vsix
-     ```
-3. O ícone **Claude Sync** aparece na barra lateral esquerda.
-
-Requisito: VS Code 1.85 ou mais novo.
-
-### Atualizar
-
-Instale o `.vsix` novo por cima do antigo, do mesmo jeito. As configurações e a conexão com o GitHub são mantidas.
+> Independent, unofficial project. Not affiliated with Anthropic. "Claude" and "Claude Code" are trademarks of Anthropic.
 
 ---
 
-## Configuração
+## What makes it different
 
-> 📘 **Primeira vez?** O [Guia de configuração](docs/GUIA-CONFIGURACAO.md) explica tudo passo a passo, incluindo o que aparece em cada tela e os problemas mais comuns.
+Most sync tools copy whole files or project snapshots, so when two machines change the same conversation, **the last one to sync wins** and the other side's messages are lost. Claude Code Sync was built around that problem:
 
-1. Clique no ícone **Claude Sync** na barra lateral → **Entrar com GitHub**. Também dá para usar `Ctrl+Shift+P` → **Claude Sync: Configure GitHub Credentials**.
-2. Escolha **Entrar com GitHub (recomendado)** e autorize no navegador.
-3. Confirme o nome do repositório de backup (sugestão: `seu-usuario/claude-code-backup`). Se ele não existir, a extensão o cria como **privado**.
-4. **Antes da primeira sincronização, faça uma cópia das suas conversas:**
+| | Claude Code Sync | Typical file / snapshot sync |
+|---|---|---|
+| **Same conversation continued on two machines** | Both sides merged **event by event** — nothing lost | Last writer wins; the other side's messages are overwritten |
+| **History** | Every sync is a **Git commit**: any previous state can be restored | Only the latest copy (or a few dated backups) |
+| **Where data lives** | A **private GitHub repository you own**, readable as plain files | A cloud drive folder or a proprietary format |
+| **Setup** | GitHub sign-in built into VS Code — no tokens, no OAuth app to register | May require setting up API credentials |
+| **Huge sessions** (pasted images) | Compressed and split automatically, verified byte by byte | Subject to the storage service's upload limits |
+| **Granularity** | Everything, a project, or **individual conversations** | Usually whole projects |
+
+**What it doesn't do (yet):** sync memory, skills, `CLAUDE.md` or `settings.json`. It focuses on conversation history and does that without data loss.
+
+## Why Claude Code Sync
+
+| | |
+|---|---|
+| 🔀 **Lossless merge** | Conversations are merged **line by line (event by event)**, not file by file. If you kept chatting on two machines, you get both branches of the conversation — no "last writer wins". |
+| 🕓 **Full version history** | Every sync is a Git commit. Any previous state of any conversation can be recovered from the repository history. |
+| 🔐 **Your repo, your data** | Backups go to a private repository in **your** GitHub account. No third-party servers, no telemetry. |
+| ⚡ **Zero setup** | Sign in with the GitHub account built into VS Code. No tokens to create, no OAuth apps to register, no Git CLI required. |
+| 🛡️ **Safe by design** | Never deletes local conversations, never touches a session that is being written, and creates a `.bak` before replacing anything. |
+| 🗂️ **All your projects, any path** | The same project can live at `/home/me/app` on Linux and `C:\Users\me\app` on Windows — it's recognized by its Git remote, so its conversations show up in the right place on every machine. |
+| 🎯 **Sync what you want** | Everything, the current project, selected projects, or individual conversations. |
+
+---
+
+## Quick start
+
+1. **Install** the extension from the [Marketplace](https://marketplace.visualstudio.com/items?itemName=kslabs.claude-code-session-sync), or in VS Code: `Ctrl+Shift+X` → search for **Claude Code Sync** (publisher **KS Labs**).
+2. **Sign in:** open the **Claude Sync** icon in the activity bar → **Sign in with GitHub** and authorize in the browser.
+3. **Pick a repository:** accept the suggestion (`your-user/claude-code-backup`). If it doesn't exist, the extension creates it as **private**.
+4. **Back up your current history once** before the first sync, just in case:
    ```bash
    cp -r ~/.claude/projects ~/claude-projects-backup
    ```
-5. Clique em **🔄 Sync**.
+5. Click **🔄 Sync**.
 
-Numa máquina nova, repita os passos 1 a 3 com a **mesma conta** e o **mesmo repositório**.
+On another machine, repeat steps 1–3 with the **same GitHub account** and the **same repository**, then click **🔄 Sync**.
 
-### Configurações
+📘 Step-by-step guide with troubleshooting: [docs/SETUP.md](docs/SETUP.md)
 
-| Configuração | Padrão | Descrição |
-|---|---|---|
-| `claudeSync.githubRepoUrl` | — | Repositório de backup (`usuario/repo`, `https://github.com/usuario/repo` ou `git@github.com:usuario/repo.git`) |
-| `claudeSync.githubToken` | — | Opcional: token manual em texto puro. Prefira *Entrar com GitHub* ou o token pelo comando de configuração, que fica no cofre do VS Code |
-| `claudeSync.autoSync` | `false` | Sincronização automática em segundo plano |
-| `claudeSync.autoSyncInterval` | `30` | Intervalo em minutos |
-| `claudeSync.syncOnStartup` | `true` | Sincroniza ao abrir o VS Code (se o auto-sync estiver ligado) |
-
-Todas valem **apenas nas configurações de usuário**. Valores colocados no `.vscode/settings.json` de um projeto são ignorados (o motivo está em [Segurança](#segurança)).
+> 🌐 The interface is available in **English** and **Portuguese (Brazil)** and follows VS Code's display language. More translations are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
-## Uso
+## Features
 
-### Interface
+### Sync
+- **Push**, **Pull** or **bi-directional Sync**, for everything, the current workspace, selected projects or specific conversations.
+- **Optional auto-sync** in the background, at a configurable interval and on startup.
+- Also syncs each session's subagent transcripts and tool results (`<session>/subagents/`, `<session>/tool-results/`).
+- **Large sessions** (pasted images can push them past 100 MB) are compressed and split into parts automatically, then reassembled and verified byte by byte on the other machine.
 
-- Barra lateral **Claude Sync** com duas seções:
-  - **Projetos Locais**
-  - **Sincronização Remota (GitHub)**
+### Lossless merge
 
-  O ícone de cada conversa indica o status: sincronizada, só local, só remota ou diferente. Os botões ⬆️ Push, ⬇️ Pull e 🔄 Sync aparecem no título das seções e em cada item. Dá para selecionar vários itens com Ctrl/Shift.
-- Barra de status: `Claude Syncing...` durante a sincronização e `Claude Synced` ao terminar. Clique para sincronizar.
-
-### Comandos (`Ctrl+Shift+P` → "Claude Sync")
-
-| Comando | O que faz |
-|---|---|
-| Configure GitHub Credentials | Conecta a conta do GitHub e escolhe o repositório |
-| Full Synchronization (Push + Pull) | Sincroniza tudo nos dois sentidos |
-| Push Local Sessions to GitHub | Envia (tudo, projeto atual, projetos ou conversas escolhidos) |
-| Pull Remote Sessions from GitHub | Baixa (mesmas opções) |
-| Select Specific Sessions to Sync | Escolhe conversas específicas |
-| Change Backup Repository | Troca o repositório; o backup antigo não é apagado |
-| Switch GitHub Account | Troca a conta do GitHub |
-| Sign Out (Disconnect from GitHub) | Desconecta; nada é apagado |
-| Toggle Auto-Sync | Liga ou desliga a sincronização automática |
-| Show Log | Mostra os detalhes de cada sincronização |
-
-### Como os projetos são identificados
-
-A pasta local do Claude Code depende do caminho (`/home/usuario/projetoA` → `-home-usuario-projetoA`), e por isso não serve como chave entre máquinas. A chave remota é:
-
-1. a **URL do remote Git** (`origin`) do projeto, por exemplo `git@github.com:acme/projetoA.git` → `repos/acme-projetoa/`;
-2. sem remote Git: `local-<nome-da-pasta>`;
-3. uma associação manual, feita quando você escolhe a pasta de um projeto remoto que ainda não existe na máquina.
-
-Quando um projeto existe no backup mas não nesta máquina, a extensão **pergunta** onde fica a pasta dele. Se o mesmo caminho existir em outra máquina e também nesta, ele aparece como sugestão, mas só é usado se você confirmar. Por isso, no auto-sync, um projeto novo vindo de outra máquina só é baixado depois de uma sincronização manual em que você escolhe a pasta.
-
-### Merge sem perdas
-
-| Situação | Push | Pull | Sync |
+| Situation | Push | Pull | Sync |
 |---|---|---|---|
-| Conversa só no local | envia | mantém | envia |
-| Conversa só no GitHub | — | baixa | baixa |
-| Local contém tudo do remoto e mais | envia | mantém | envia |
-| Remoto contém tudo do local e mais | **não sobrescreve** (avisa) | atualiza o local | atualiza o local |
-| Os dois lados têm eventos exclusivos | envia a união | `.bak` + grava a união | `.bak` + união nos dois lados |
+| Conversation only on this machine | uploads | keeps | uploads |
+| Conversation only on GitHub | — | downloads | downloads |
+| Local has everything remote has, and more | uploads | keeps | uploads |
+| Remote has everything local has, and more | **doesn't overwrite** (warns) | updates local | updates local |
+| Both sides have new events | uploads the union | `.bak` + writes the union | `.bak` + union on both sides |
 
-- A comparação é feita **linha a linha (evento a evento)**: nenhuma linha de nenhum dos lados é descartada. Na divergência, as linhas são intercaladas por `timestamp`.
-- Antes de substituir um arquivo local, a extensão grava `<sessão>.jsonl.<data>.bak` na mesma pasta. O Claude Code ignora esses arquivos.
-- Conversas modificadas nos últimos 10 segundos (em uso) nunca são sobrescritas. A atualização fica para a próxima sincronização.
-- A gravação local é atômica e é cancelada se o arquivo mudar durante a sincronização.
-- No remoto, cada sincronização vira **um commit**, e o histórico do Git guarda todas as versões anteriores. Se outra máquina enviar algo no meio, a sincronização relê o remoto e mescla de novo.
-- Também são sincronizados os arquivos de `<sessão>/` (`subagents/`, `tool-results/`).
-- **Arquivos grandes** (acima de 20 MB, comuns em conversas com imagens coladas) vão comprimidos e divididos em partes de até 20 MB (`<arquivo>.chunks/manifest.json` + `part-NNN.gz`), porque a API do GitHub recusa uploads grandes. Na outra máquina, o arquivo é remontado e conferido byte a byte. Na interface ele aparece como um arquivo só.
-- Se o GitHub recusar algum arquivo, os demais são enviados normalmente e o problema aparece nos avisos (*Show Log*).
+- No line from either side is ever dropped. Diverging events are interleaved by timestamp.
+- Before replacing a local file, a `<session>.jsonl.<date>.bak` copy is saved next to it.
+- Sessions modified in the last 10 seconds (in use by Claude Code) are never overwritten; they're updated on the next sync.
+- Local writes are atomic and are cancelled if the file changes mid-sync.
+- If another machine pushes during a sync, the extension re-reads the repository and merges again.
+
+### Projects across machines
+The same project usually lives at different paths on each machine (`/home/me/app` vs `C:\Users\me\app`). Projects are matched by their **Git remote URL** (`origin`), so conversations land in the right place automatically. Projects without a Git remote are matched by folder name, and you can map any remote project to a local folder by hand.
+
+### Sidebar
+- **Local Projects** and **Remote Sync (GitHub)** views, with a status icon for every conversation: synced, local only, remote only, or different.
+- Push / Pull / Sync buttons on every item; multi-select with Ctrl/Shift.
+- Status bar indicator: `Claude Syncing...` → `Claude Synced`. Click it to sync.
 
 ---
 
-## Segurança
+## What gets synced
 
-### O que fica onde
-
-| Dado | Onde fica |
+| Path | Synced |
 |---|---|
-| Suas conversas | Na sua máquina (`~/.claude/projects`) e no repositório de backup do GitHub, **sem criptografia adicional** |
-| Login do GitHub | Gerenciado pelo próprio VS Code; a extensão não grava nada |
-| Token manual (PAT), se usado pelo comando | No cofre seguro do VS Code (`SecretStorage`), nunca no `settings.json` |
-| Requisições de rede | Somente para `https://api.github.com`. Nenhum outro servidor recebe dados |
+| `~/.claude/projects/<project>/<session>.jsonl` — conversation history | ✅ |
+| `~/.claude/projects/<project>/<session>/…` — subagents, tool results | ✅ |
+| `*.bak` backups created by the extension | ❌ |
+| Memory, skills, `CLAUDE.md`, `settings.json` | ❌ not yet |
 
-O token nunca é gravado no log.
+The repository layout is plain and readable:
 
-### Proteções da extensão
-
-- **Repositório público é bloqueado.** A cada envio, a extensão confere se o repositório ainda é privado. Se ele tiver sido tornado público (por engano, ou por outra pessoa de uma organização), o envio é cancelado e nada sai da máquina. Usar um repositório público só é possível com confirmação explícita no comando de configuração.
-- **Projetos abertos não controlam a extensão.** As configurações `claudeSync.*` só valem nas configurações de usuário. Sem isso, um repositório malicioso poderia trazer um `.vscode/settings.json` que apontasse o backup para outro repositório e ligasse o auto-sync, enviando todas as suas conversas para lá assim que você abrisse o projeto.
-- **O token manual não vai para a nuvem do VS Code.** O campo `claudeSync.githubToken` é ignorado pelo Settings Sync.
-- **Dados vindos do GitHub são tratados como não confiáveis:**
-  - caminhos com `..`, barras invertidas ou caracteres especiais são recusados, e nada é gravado fora de `~/.claude/projects`;
-  - nomes de projeto e de conversa só são aceitos com letras, números, `.`, `_` e `-`;
-  - arquivos comprimidos não podem crescer além do tamanho declarado (proteção contra "bombas" de descompressão), e arquivos acima de 1 GB não são baixados;
-  - o `metadata.json` remoto é validado campo a campo antes de ser usado;
-  - caminhos de outras máquinas gravados no backup nunca decidem sozinhos onde gravar arquivos; no máximo aparecem como sugestão.
-- **O nome do repositório é validado** pelas regras do GitHub, o que impede que um valor como `../..` desvie as requisições para outro endpoint da API com o seu token.
-- **Credenciais em URLs de remote Git** (`https://usuario:token@...`) são removidas antes de irem para o `metadata.json`.
-
-### Riscos que você precisa conhecer
-
-Estes riscos vêm da própria ideia de sincronizar pelo GitHub e não podem ser eliminados pelo código:
-
-1. **As conversas podem conter segredos.** Chaves coladas no chat e conteúdo de `.env` lido por ferramentas do Claude ficam gravados nos `.jsonl` e vão para o backup.
-   - Mantenha o repositório **privado** e não adicione colaboradores.
-   - Se um segredo foi parar numa conversa, troque o segredo. Apagar o arquivo não basta, porque ele continua no histórico de commits.
-2. **Quem tem escrita no repositório consegue injetar conversas nas suas máquinas.** Uma conversa falsa baixada pelo Pull pode conter instruções que o Claude seguiria ao retomá-la. Não compartilhe o repositório de backup com ninguém.
-3. **O login do VS Code pede a permissão `repo`**, que vale para **todos** os repositórios da sua conta, não só para o backup. É uma limitação do login do GitHub no VS Code, e é a mesma permissão usada por extensões como GitHub Pull Requests. Para limitar o acesso a um único repositório, use um token *fine-grained* (veja o [apêndice do guia](docs/GUIA-CONFIGURACAO.md#apêndice--usar-um-token-manual-pat)).
-4. **Uma conta do GitHub comprometida expõe o backup.** Ative a autenticação em dois fatores na sua conta.
-
-### Revogar o acesso
-
-- Login do VS Code: https://github.com/settings/applications → **Authorized OAuth Apps** → **Visual Studio Code** → **Revoke**.
-- Token manual: https://github.com/settings/personal-access-tokens → o token → **Delete**.
-- Na extensão: **Claude Sync: Sign Out** desconecta e para a sincronização, sem apagar nada.
-
-### Reportar uma vulnerabilidade
-
-Não abra uma issue pública. Veja como reportar de forma privada na [política de segurança](SECURITY.md).
-
----
-
-## Desenvolvimento
-
-### Requisitos
-
-- Node.js 22 ou mais novo
-- VS Code 1.85 ou mais novo
-
-### Comandos
-
-```bash
-npm install        # instala as dependências
-npm run compile    # compila o TypeScript para out/
-npm run watch      # recompila a cada alteração
-npm test           # testes do merge, do motor (duas máquinas simuladas com um GitHub falso) e de segurança
+```
+repos/<project-key>/<session-id>.jsonl
+repos/<project-key>/<session-id>/...
+repos/<project-key>/metadata.json      # titles, dates, known paths per machine
 ```
 
-Para depurar, abra a pasta no VS Code e pressione **F5** (*Run Extension*). Uma nova janela do VS Code abre com a extensão carregada.
+---
 
-### Estrutura
+## Commands
 
-| Caminho | Conteúdo |
+All commands are under **Claude Sync** in the Command Palette (`Ctrl+Shift+P`).
+
+| Command | What it does |
 |---|---|
-| `src/extension.ts` | Ativação, comandos, login e interface |
-| `src/services/syncEngine.ts` | Motor de sincronização e merge dos `.jsonl` |
-| `src/services/githubService.ts` | Cliente da API REST do GitHub |
-| `src/services/claudeStorageService.ts` | Leitura e gravação em `~/.claude/projects` |
-| `src/services/chunkedStorage.ts` | Compressão e divisão de arquivos grandes |
-| `src/views/claudeTreeDataProvider.ts` | Árvores da barra lateral |
-| `src/test/` | Testes (`node --test`) |
+| Configure GitHub Credentials | Sign in and choose the backup repository |
+| Full Synchronization (Push + Pull) | Sync everything both ways |
+| Push Local Sessions to GitHub | Upload (all, current project, selected projects or conversations) |
+| Pull Remote Sessions from GitHub | Download (same options) |
+| Select Specific Sessions to Sync | Pick individual conversations |
+| Change Backup Repository | Switch repositories; the old backup is left untouched |
+| Switch GitHub Account | Use another GitHub account or a token |
+| Sign Out (Disconnect from GitHub) | Stop syncing; nothing is deleted |
+| Toggle Auto-Sync | Turn background sync on or off |
+| Show Log | Details of every sync |
 
-### Gerar o `.vsix`
+## Settings
 
-1. Se mudou algo para os usuários, aumente a versão (atualiza o `package.json` e o `package-lock.json`):
-   ```bash
-   npm version patch --no-git-tag-version   # 0.2.2 → 0.2.3 (use minor ou major para mudanças maiores)
-   ```
-2. Rode os testes e gere o pacote:
-   ```bash
-   npm test
-   npm run package
-   ```
-   O `npm run package` compila o projeto e gera `claude-code-session-sync-<versão>.vsix` na raiz.
-3. Confira a lista de arquivos que o comando imprime. Ela deve ter só `package.json`, `readme.md`, `docs/`, `media/` e `out/` (sem testes nem `.map`). O que fica de fora é definido no `.vscodeignore`.
-4. Não faça commit do `.vsix`: ele já está no `.gitignore`. Para distribuir, publique um release (abaixo).
+| Setting | Default | Description |
+|---|---|---|
+| `claudeSync.githubRepoUrl` | — | Backup repository (`user/repo`, `https://github.com/user/repo` or `git@github.com:user/repo.git`) |
+| `claudeSync.autoSync` | `false` | Background sync |
+| `claudeSync.autoSyncInterval` | `30` | Minutes between background syncs |
+| `claudeSync.syncOnStartup` | `true` | Sync when VS Code opens (if auto-sync is on) |
+| `claudeSync.githubToken` | — | Optional plain-text token. Prefer signing in, or entering the token through the configure command (stored in VS Code's secret storage) |
 
-### Publicar um release
-
-O workflow [`release.yml`](.github/workflows/release.yml) gera o `.vsix` e cria o release no GitHub sozinho quando uma tag de versão é enviada:
-
-```bash
-npm version patch --no-git-tag-version      # aumenta a versão no package.json
-git commit -am "Versão 0.2.3"
-git push
-git tag v0.2.3                              # a tag precisa ser igual à versão, com "v" na frente
-git push origin v0.2.3
-```
-
-Acompanhe na aba **Actions**. Em cerca de um minuto o release aparece em **Releases**, com o `.vsix` anexado e as notas geradas a partir dos commits. Se a tag não corresponder à versão do `package.json` ou algum teste falhar, nada é publicado.
+These settings only apply from **User** settings. Values in a project's `.vscode/settings.json` are ignored on purpose — see [Security](#security--privacy).
 
 ---
 
-## Contribuir
+## Security & privacy
 
-Contribuições são bem-vindas! Veja o [guia de contribuição](CONTRIBUTING.md).
+> ⚠️ **Your Claude Code conversations can contain source code, passwords and API keys.** They're stored in your GitHub repository without additional encryption. Keep the repository **private** and don't add collaborators.
 
-## Licença
+**Where your data goes**
+
+| Data | Where |
+|---|---|
+| Conversations | Your machine and your private GitHub repository |
+| GitHub sign-in | Managed by VS Code; the extension stores nothing |
+| Manual token (if used) | VS Code secret storage (OS keychain), never `settings.json` |
+| Network requests | `https://api.github.com` only |
+| Telemetry / analytics | **None** |
+
+**Built-in protections**
+- **Public repositories are blocked.** Before every upload the extension checks that the repository is still private. If it was made public, nothing is sent.
+- **Opened projects can't control the extension.** Settings are user-level only, so a malicious repository can't redirect your backup or turn on auto-sync through its `.vscode/settings.json`.
+- **Data coming from GitHub is treated as untrusted:** path traversal (`..`) is rejected, nothing is ever written outside `~/.claude/projects`, names are validated, compressed files can't expand beyond their declared size, and remote metadata is validated field by field.
+- **Tokens never appear in logs**, and credentials in Git remote URLs are stripped before being stored.
+
+**Risks you should know about**
+1. **Anyone with write access to your backup repository can inject conversations** into your machines. Never share it.
+2. **Signing in with VS Code grants the `repo` scope**, which covers all repositories in your account. To restrict access to a single repository, use a fine-grained token instead ([how-to](docs/SETUP.md#appendix--using-a-personal-access-token)).
+3. **If a secret ends up in a conversation, rotate it.** Deleting the file doesn't remove it from the Git history.
+4. **Enable two-factor authentication** on your GitHub account.
+
+Revoke access anytime at [github.com/settings/applications](https://github.com/settings/applications) → **Authorized OAuth Apps** → **Visual Studio Code** → **Revoke**.
+
+Found a vulnerability? Please report it privately — see [SECURITY.md](SECURITY.md).
+
+---
+
+## FAQ
+
+**Does it work without Git installed?**
+Yes. It talks to GitHub's REST API directly; no Git CLI is needed.
+
+**Will it delete or overwrite my conversations?**
+No. Local conversations are never deleted. When a local file must be replaced, a `.bak` copy is created first, and every remote change is a Git commit you can roll back.
+
+**What if I continue the same conversation on two machines?**
+Both sides are merged event by event. Claude Code rebuilds the conversation from its message links, so the diverging parts show up as branches of the same conversation.
+
+**Does it work on Windows, macOS and Linux?**
+Yes, including syncing between different operating systems.
+
+**Can I use an organization repository?**
+Yes, as long as the organization allows the VS Code GitHub app, or you use a token with access to the repository.
+
+**Is the backup encrypted?**
+Not beyond what GitHub provides for private repositories. Treat the repository as sensitive and keep it private.
+
+**Is this an official Anthropic extension?**
+No. It's an independent open-source project.
+
+---
+
+## Development
+
+Requirements: Node.js 22+ and VS Code 1.85+.
+
+```bash
+npm install
+npm test           # merge, sync engine (two simulated machines with a fake GitHub) and security tests
+npm run package    # builds the .vsix
+```
+
+Press **F5** in VS Code to launch an Extension Development Host. See [CONTRIBUTING.md](CONTRIBUTING.md) for the project structure, rules and release process.
+
+## Contributing
+
+Issues and pull requests are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first, and never paste real conversations into issues.
+
+## License
 
 [MIT](LICENSE) © lucaskge

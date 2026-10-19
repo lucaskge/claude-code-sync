@@ -10,7 +10,7 @@ Obrigado pelo interesse! Contribuições são bem-vindas: correções, melhorias
 
 ## Preparar o ambiente
 
-Requisitos: Node.js 20 ou mais novo e VS Code 1.85 ou mais novo.
+Requisitos: Node.js 22 ou mais novo e VS Code 1.85 ou mais novo.
 
 ```bash
 git clone https://github.com/lucaskge/claude-code-sync.git

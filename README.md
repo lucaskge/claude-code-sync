@@ -176,7 +176,7 @@ Não abra uma issue pública. Veja como reportar de forma privada na [política 
 
 ### Requisitos
 
-- Node.js 20 ou mais novo
+- Node.js 22 ou mais novo
 - VS Code 1.85 ou mais novo
 
 ### Comandos

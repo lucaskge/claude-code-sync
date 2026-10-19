@@ -2,8 +2,8 @@
   "name": "claude-code-sync",
   "displayName": "Claude Code Sync",
   "description": "Backup, restore e sincronização bi-direcional das sessões do Claude Code (~/.claude/projects) via repositório GitHub privado, com merge sem perdas.",
-  "version": "0.2.2",
-  "publisher": "seu-publisher",
+  "version": "0.2.3",
+  "publisher": "kslabs",
   "license": "MIT",
   "repository": {
     "type": "git",

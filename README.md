@@ -11,6 +11,8 @@
 
 Start a conversation on your desktop and continue it on your laptop. When the same conversation moves forward on two computers, both versions are merged event by event, so nothing is ever overwritten — and every sync is a Git commit you can roll back.
 
+![Claude Code Sync sidebar: local projects and their conversations](media/screenshots/sidebar.png)
+
 > Independent, unofficial project. Not affiliated with Anthropic. "Claude" and "Claude Code" are trademarks of Anthropic.
 
 ---
@@ -48,6 +50,9 @@ Most sync tools copy whole files or project snapshots, so when two machines chan
 
 1. **Install** the extension from the [Marketplace](https://marketplace.visualstudio.com/items?itemName=kslabs.claude-code-session-sync), or in VS Code: `Ctrl+Shift+X` → search for **Claude Code Sync** (publisher **KS Labs**).
 2. **Sign in:** open the **Claude Sync** icon in the activity bar → **Sign in with GitHub** and authorize in the browser.
+
+   ![Choosing how to sign in to GitHub](media/screenshots/sign-in.png)
+
 3. **Pick a repository:** accept the suggestion (`your-user/claude-code-backup`). If it doesn't exist, the extension creates it as **private**.
 4. **Back up your current history once** before the first sync, just in case:
    ```bash

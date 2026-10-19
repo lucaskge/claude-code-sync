@@ -2,7 +2,7 @@
   "name": "claude-code-session-sync",
   "displayName": "Claude Code Sync",
   "description": "Sync Claude Code conversations across machines via your own private GitHub repo — lossless event-by-event merge and full version history.",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "publisher": "kslabs",
   "icon": "media/icon.png",
   "license": "MIT",

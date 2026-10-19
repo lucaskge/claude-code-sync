@@ -30,6 +30,9 @@ code --install-extension claude-code-session-sync-0.2.4.vsix
 
 1. Click the **Claude Sync** icon in the activity bar, then **Sign in with GitHub**. You can also use `Ctrl+Shift+P` → **Claude Sync: Configure GitHub Credentials**.
 2. Choose **Sign in with GitHub** (recommended).
+
+   ![Choosing how to sign in to GitHub](../media/screenshots/sign-in.png)
+
 3. VS Code asks whether the extension may sign in with GitHub. Click **Allow**.
 4. The browser opens GitHub's authorization page. Check the account and click **Authorize**.
    - If you're already signed in to GitHub inside VS Code, this step may be skipped.
@@ -44,7 +47,10 @@ code --install-extension claude-code-session-sync-0.2.4.vsix
    cp -r ~/.claude/projects ~/claude-projects-backup
    ```
    On Windows, copy `%USERPROFILE%\.claude\projects` to another folder.
-2. In the **Claude Sync** sidebar, click **⬆️ Push** and choose **Current project**.
+2. In the **Claude Sync** sidebar, click **⬆️ Push** and choose **Current project**. The Push, Pull and Sync buttons are at the top of each section and next to every project and conversation:
+
+   ![Sidebar buttons and the sign-in button](../media/screenshots/sidebar-actions.png)
+
 3. Open the repository on GitHub and check that `repos/<project-name>/` appeared, with `.jsonl` files and a `metadata.json`.
 4. If everything looks right, click **🔄 Sync** to sync everything.
 

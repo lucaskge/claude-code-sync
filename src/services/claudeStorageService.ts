@@ -320,7 +320,7 @@ export class ClaudeStorageService {
     const ordered = [...sessionFiles].sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, 20);
     search: for (const file of ordered) {
       const head = await readHead(file.absPath, HEAD_BYTES);
-      for (const match of head.matchAll(/"cwd":"((?:[^"\\]|\\.)*)"/g)) {
+      for (const match of head.matchAll(/"cwd"\s*:\s*"((?:[^"\\]|\\.)*)"/g)) {
         let candidate: string;
         try {
           candidate = JSON.parse(`"${match[1]}"`) as string;

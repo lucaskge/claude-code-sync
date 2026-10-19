@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.5] — 2026-10-19
+
+### Changed
+- New sidebar icon, matching the extension icon (chat bubble with sync arrows).
+- Screenshots in the README.
+
+### Fixed
+- Project folder detection now also reads session files with spaces in the JSON (`"cwd": "..."`).
+
 ## [0.2.4] — 2026-10-19
 
 ### Added

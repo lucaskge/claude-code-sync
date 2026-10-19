@@ -9,3 +9,4 @@ node_modules/**
 claude-code-sync-*/**
 .github/**
 CONTRIBUTING.md
+SECURITY.md

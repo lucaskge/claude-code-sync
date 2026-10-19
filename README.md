@@ -168,7 +168,7 @@ Estes riscos vêm da própria ideia de sincronizar pelo GitHub e não podem ser 
 
 ### Reportar uma vulnerabilidade
 
-Não abra uma issue pública. Use **Security → Report a vulnerability** na página do repositório no GitHub.
+Não abra uma issue pública. Veja como reportar de forma privada na [política de segurança](SECURITY.md).
 
 ---
 

@@ -5,7 +5,7 @@ Obrigado pelo interesse! Contribuições são bem-vindas: correções, melhorias
 ## Antes de começar
 
 - **Bugs e ideias:** abra uma *issue* descrevendo o problema ou a proposta. Para mudanças grandes, converse na issue antes de escrever o código.
-- **Vulnerabilidades de segurança:** **não** abra uma issue pública. Use **Security → Report a vulnerability** na página do repositório.
+- **Vulnerabilidades de segurança:** **não** abra uma issue pública. Siga a [política de segurança](SECURITY.md).
 - **Nunca cole conversas reais do Claude Code** em issues, PRs ou testes. Elas podem conter código, senhas e chaves. Use dados inventados.
 
 ## Preparar o ambiente

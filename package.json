@@ -4,6 +4,7 @@
   "description": "Backup, restore e sincronização bi-direcional das sessões do Claude Code (~/.claude/projects) via repositório GitHub privado, com merge sem perdas.",
   "version": "0.2.3",
   "publisher": "kslabs",
+  "icon": "media/icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",

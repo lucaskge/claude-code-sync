@@ -215,7 +215,21 @@ Para depurar, abra a pasta no VS Code e pressione **F5** (*Run Extension*). Uma 
    ```
    O `npm run package` compila o projeto e gera `claude-code-sync-<versão>.vsix` na raiz.
 3. Confira a lista de arquivos que o comando imprime. Ela deve ter só `package.json`, `readme.md`, `docs/`, `media/` e `out/` (sem testes nem `.map`). O que fica de fora é definido no `.vscodeignore`.
-4. Para distribuir, anexe o `.vsix` a uma **Release** no GitHub. Não faça commit do `.vsix`: ele já está no `.gitignore`.
+4. Não faça commit do `.vsix`: ele já está no `.gitignore`. Para distribuir, publique um release (abaixo).
+
+### Publicar um release
+
+O workflow [`release.yml`](.github/workflows/release.yml) gera o `.vsix` e cria o release no GitHub sozinho quando uma tag de versão é enviada:
+
+```bash
+npm version patch --no-git-tag-version      # aumenta a versão no package.json
+git commit -am "Versão 0.2.3"
+git push
+git tag v0.2.3                              # a tag precisa ser igual à versão, com "v" na frente
+git push origin v0.2.3
+```
+
+Acompanhe na aba **Actions**. Em cerca de um minuto o release aparece em **Releases**, com o `.vsix` anexado e as notas geradas a partir dos commits. Se a tag não corresponder à versão do `package.json` ou algum teste falhar, nada é publicado.
 
 ---
 

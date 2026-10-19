@@ -5,6 +5,14 @@
   "version": "0.2.2",
   "publisher": "seu-publisher",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lucaskge/claude-code-sync.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lucaskge/claude-code-sync/issues"
+  },
+  "homepage": "https://github.com/lucaskge/claude-code-sync#readme",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -328,7 +336,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node --test out/test/*.test.js",
-    "package": "vsce package --allow-missing-repository --no-rewrite-relative-links"
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

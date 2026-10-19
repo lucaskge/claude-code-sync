@@ -19,7 +19,7 @@ Extensão do VS Code que faz backup, restore e sincronização bi-direcional das
 
 ### Pelo arquivo `.vsix`
 
-1. Baixe o `claude-code-sync-<versão>.vsix` na página de **Releases** do repositório, ou gere o arquivo você mesmo (veja [Gerar o `.vsix`](#gerar-o-vsix)).
+1. Baixe o `claude-code-sync-<versão>.vsix` na página de [**Releases**](https://github.com/lucaskge/claude-code-sync/releases), ou gere o arquivo você mesmo (veja [Gerar o `.vsix`](#gerar-o-vsix)).
 2. Instale de um destes jeitos:
    - No VS Code: aba **Extensões** (`Ctrl+Shift+X`) → menu `⋯` → **Install from VSIX...** → escolha o arquivo.
    - No terminal:

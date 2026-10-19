@@ -16,12 +16,12 @@ O jeito recomendado é o **login do GitHub embutido no VS Code**, o mesmo usado 
 
 ## Passo 1 — Instalar a extensão
 
-No VS Code: aba **Extensões** (`Ctrl+Shift+X`) → menu `⋯` → **Install from VSIX...** → escolha o arquivo `claude-code-sync-<versão>.vsix`.
+No VS Code: aba **Extensões** (`Ctrl+Shift+X`) → menu `⋯` → **Install from VSIX...** → escolha o arquivo `claude-code-session-sync-<versão>.vsix`.
 
 Ou no terminal:
 
 ```bash
-code --install-extension claude-code-sync-0.2.2.vsix
+code --install-extension claude-code-session-sync-0.2.3.vsix
 ```
 
 ## Passo 2 — Entrar com GitHub

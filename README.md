@@ -19,12 +19,12 @@ Extensão do VS Code que faz backup, restore e sincronização bi-direcional das
 
 ### Pelo arquivo `.vsix`
 
-1. Baixe o `claude-code-sync-<versão>.vsix` na página de [**Releases**](https://github.com/lucaskge/claude-code-sync/releases), ou gere o arquivo você mesmo (veja [Gerar o `.vsix`](#gerar-o-vsix)).
+1. Baixe o `claude-code-session-sync-<versão>.vsix` na página de [**Releases**](https://github.com/lucaskge/claude-code-sync/releases), ou gere o arquivo você mesmo (veja [Gerar o `.vsix`](#gerar-o-vsix)).
 2. Instale de um destes jeitos:
    - No VS Code: aba **Extensões** (`Ctrl+Shift+X`) → menu `⋯` → **Install from VSIX...** → escolha o arquivo.
    - No terminal:
      ```bash
-     code --install-extension claude-code-sync-0.2.2.vsix
+     code --install-extension claude-code-session-sync-0.2.3.vsix
      ```
 3. O ícone **Claude Sync** aparece na barra lateral esquerda.
 
@@ -213,7 +213,7 @@ Para depurar, abra a pasta no VS Code e pressione **F5** (*Run Extension*). Uma 
    npm test
    npm run package
    ```
-   O `npm run package` compila o projeto e gera `claude-code-sync-<versão>.vsix` na raiz.
+   O `npm run package` compila o projeto e gera `claude-code-session-sync-<versão>.vsix` na raiz.
 3. Confira a lista de arquivos que o comando imprime. Ela deve ter só `package.json`, `readme.md`, `docs/`, `media/` e `out/` (sem testes nem `.map`). O que fica de fora é definido no `.vscodeignore`.
 4. Não faça commit do `.vsix`: ele já está no `.gitignore`. Para distribuir, publique um release (abaixo).
 

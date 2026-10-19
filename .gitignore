@@ -3,3 +3,4 @@ out/
 *.vsix
 claude-code-sync-*/
 .vscode/settings.json
+claude-code-session-sync-*/
